@@ -20,6 +20,8 @@ int compile(std::vector<char> buffer)
         std::cout << token << std::endl;
 
     std::cout << "--- syntax check ---" << std::endl;
+    syntax_check(tokens);
+    
 
     return 0;
 }
