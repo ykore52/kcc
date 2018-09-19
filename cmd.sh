@@ -3,7 +3,12 @@
 BINKCC="./bin/kcc"
 
 function build() {
-    gcc -std=c++11 main.cpp -lstdc++ -o ${BINKCC}
+    sources=$(find . -type f -name "*.cc" -and -not -name "*_test.cc")
+    g++ -std=c++11 ${sources} -o ${BINKCC}
+}
+
+function asttest() {
+    g++ -std=c++11 ast_test.cc -o ./bin/ast
 }
 
 function unittest() {
@@ -24,8 +29,16 @@ function unittest() {
     echo "===== finish unit tests ====="
 }
 
+test -e "./bin" || mkdir ./bin
+
 if [ "$1" == "build" ]; then
     build
 elif [ "$1" == "test" ]; then
     unittest
+elif [ "$1" == "ast" ]; then
+	asttest
+elif [ "$1" == "all" ]; then
+    build && unittest
+else
+    echo "./cmd.sh (build|test|ast)"
 fi
