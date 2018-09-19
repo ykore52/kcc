@@ -10,11 +10,41 @@
 namespace kcc
 {
 
-std::vector<char> Tokenizer::FetchToken(std::vector<char>::iterator &iter)
+// Tokenizer
+std::vector<std::string> Tokenizer::Tokenize(std::vector<char> &buffer)
+{
+    std::vector<std::string> tokens;
+    auto iter = buffer.begin();
+    while (iter != buffer.end())
+    {
+        auto token = FetchToken(buffer, iter);
+        if (token.size() == 0)
+        {
+            continue;
+        }
+
+        if (ReadReservedKeyword(tokens, token, KW_INT))
+        {
+            continue;
+        }
+
+        if (ReadReservedKeyword(tokens, token, KW_RETURN))
+        {
+            continue;
+        }
+
+        PrintCharVector(token);
+        auto s = std::string(token.begin(), token.end());
+        tokens.push_back(s);
+    }
+    return tokens;
+}
+
+std::vector<char> Tokenizer::FetchToken(std::vector<char> &buffer, std::vector<char>::iterator &iter)
 {
     std::vector<char> token;
 
-    while (true)
+    while (iter != buffer.end())
     {
         // Unrecognized charachters (Nonprintable)
         if ((0x01 <= *iter && *iter <= 0x08) || (0x0b <= *iter && *iter <= 0x0c) ||
@@ -77,7 +107,7 @@ std::vector<char> Tokenizer::FetchToken(std::vector<char>::iterator &iter)
 }
 
 bool Tokenizer::ReadReservedKeyword(std::vector<std::string> &tokens,
-                                    std::vector<char> token,
+                                    std::vector<char> &token,
                                     const char *keyword)
 {
     if (std::memcmp(keyword, &token[0], std::strlen(keyword)) == 0)
@@ -88,32 +118,5 @@ bool Tokenizer::ReadReservedKeyword(std::vector<std::string> &tokens,
     return false;
 }
 
-// Tokenizer
-std::vector<std::string> Tokenizer::Tokenize(std::vector<char> buffer)
-{
-    std::vector<std::string> tokens;
-    auto iter = buffer.begin();
-    while (iter != buffer.end())
-    {
-        auto token = FetchToken(iter);
-        if (token.size() == 0)
-        {
-            continue;
-        }
-
-        if (ReadReservedKeyword(tokens, token, KW_INT))
-        {
-            continue;
-        }
-
-        if (ReadReservedKeyword(tokens, token, KW_RETURN))
-        {
-            continue;
-        }
-
-        tokens.push_back(std::string(token.begin(), token.end()));
-    }
-    return tokens;
-}
 
 } // namespace Tokenizer

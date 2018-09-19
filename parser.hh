@@ -1,12 +1,14 @@
 #ifndef __AST_HPP__
 #define __AST_HPP__
 
-#include <iostream>
 #include <cstring>
+#include <iostream>
+#include <map>
 #include <memory>
 #include <string>
 #include <vector>
-#include <map>
+
+#include "util.hh"
 
 namespace kcc
 {
@@ -17,7 +19,8 @@ enum NodeType
 
     kObjectType,
     kFuncDefinition,
-    kFuncStorageClassSpecifier, // auto, register, static, extern, typedef, __decpspec(ms-specific)
+    kFuncStorageClassSpecifier, // auto, register, static, extern, typedef,
+                                // __decpspec(ms-specific)
     kFuncIdentifier,
 };
 
@@ -43,22 +46,25 @@ struct IdentifierInfo
 
 struct CompilerState
 {
-
-    CompilerState(std::string module,
-                  const std::vector<std::string> &tokens);
-    CompilerState(std::string module,
-                  int line_number,
-                  const std::vector<std::string> &tokens);
-
+    // module name
     std::string module_name;
+
+    // line number in module
     int line_number;
 
+    // input data
     std::vector<std::string> buf;
+
+    // current position
     std::vector<std::string>::iterator iter;
 
-    std::map<std::string, TypeInfo> type_store_;
-    std::map<std::string, IdentifierInfo> identifier_store_;
+    // type information store
+    std::map<std::string, TypeInfo> type_store;
 
+    // identifier information store
+    std::map<std::string, IdentifierInfo> identifier_store;
+
+    // error information
     std::vector<CompileErrorInfo> errors;
 };
 
@@ -77,28 +83,27 @@ struct Node
 class Parser
 {
   public:
-    Parser(std::string module,
-           const std::vector<std::string> &tokens);
-    Parser(std::string module,
-           int line_number,
-           const std::vector<std::string> &tokens);
+    Parser(const std::shared_ptr<CompilerState> &compiler_state);
+
+    bool SyntaxCheck();
 
   private:
     void Init();
 
-    bool IsChar(const std::vector<std::string>::iterator &it, char c);
+    bool IsEqual(const std::vector<std::string>::iterator &it, char c);
 
-    bool SkipSemicolon(CompilerState &state);
-    void SkipLF(CompilerState &state);
+    bool SkipSemicolon();
+    void SkipLF();
 
-    bool TypeDefinition(const std::shared_ptr<Node> &node, CompilerState &state);
-    bool ArgumentDeclaration(const std::shared_ptr<Node> &node, CompilerState &state);
-    bool ArgumentDeclarationList(const std::shared_ptr<Node> &node, CompilerState &state);
-    bool FunctionIdentifier(const std::shared_ptr<Node> &node, CompilerState &state);
-    bool ReturnStatement(const std::shared_ptr<Node> &node, CompilerState &state);
-    bool CompoundStatement(const std::shared_ptr<Node> &node, CompilerState &state);
-    bool FunctionDefinition(const std::shared_ptr<Node> &node, CompilerState &state);
-    bool SyntaxCheck(const std::string module_name, const std::vector<std::string> &tokens);
+    bool TypeDefinition(const std::shared_ptr<Node> &node);
+    bool ArgumentDeclaration(const std::shared_ptr<Node> &node);
+    bool ArgumentDeclarationList(const std::shared_ptr<Node> &node);
+    bool FunctionIdentifier(const std::shared_ptr<Node> &node);
+    bool ReturnStatement(const std::shared_ptr<Node> &node);
+    bool CompoundStatement(const std::shared_ptr<Node> &node);
+    bool FunctionDefinition(const std::shared_ptr<Node> &node);
+
+    std::shared_ptr<CompilerState> compiler_state;
 };
 
 } // namespace kcc

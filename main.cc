@@ -15,18 +15,26 @@ struct CmdOptions
 
 // Compile
 // Compiling a source codesource codes.
-int Compile(const std::string &module_name, std::vector<char> buffer)
+int Compile(const std::string &module_name, std::vector<char> &buffer)
 {
-    std::vector<std::string> tokens = Tokenizer::Tokenize(buffer);
+     std::cout << "--- Compile start ---" << std::endl;
 
-    std::cout << "--- tokenization result ---" << std::endl;
-    for (auto token : tokens)
-    {
-        std::cout << token << ":" << token.length() << std::endl;
-    }
+    Tokenizer tokenizer;
+    // std::vector<std::string> tokens = tokenizer.Tokenize(buffer);
+
+    // std::cout << "--- tokenization result ---" << std::endl;
+    // for (auto token : tokens)
+    // {
+    //     std::cout << token << ":" << token.length() << std::endl;
+    // }
 
     std::cout << "--- syntax check ---" << std::endl;
-    Parser::SyntaxCheck(module_name, tokens);
+    auto compiler_state = std::shared_ptr<CompilerState>(new CompilerState);
+    compiler_state->buf = tokenizer.Tokenize(buffer);
+    compiler_state->iter = compiler_state->buf.begin();
+    compiler_state->line_number = 0;
+    Parser parser(compiler_state);
+    parser.SyntaxCheck();
 
     return 0;
 }
@@ -55,7 +63,7 @@ int main(int argc, char **argv)
     {
         auto opts = kcc::ReadOptions(argc, argv);
         std::fstream fin;
-        fin.open(opts->module_name.c_str(), std::ios::in | std::ios::binary);
+        fin.open(opts->module_name.c_str(), std::ios::in);
         if (!fin)
         {
             throw std::invalid_argument("Cannot open file.");
@@ -70,6 +78,8 @@ int main(int argc, char **argv)
 
         std::vector<char> buf(size);
         fin.read(&buf[0], size);
+
+        PrintCharVector(buf);
 
         // Compiling a source code
         kcc::Compile(opts->module_name, buf);

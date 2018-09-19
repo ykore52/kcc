@@ -5,66 +5,46 @@ namespace kcc
 
 Node::Node(NodeType type, std::string syntax) : type(type), syntax(syntax) {}
 
-Parser::Parser(std::string module,
-               const std::vector<std::string> &tokens)
-    : module_name(module),
-      buf(tokens)
+Parser::Parser(const std::shared_ptr<CompilerState> &compiler_state) : compiler_state(compiler_state)
 {
-    iter = buf.begin();
-    Init();
-}
-
-Parser::Parser(std::string module,
-               int line_number,
-               const std::vector<std::string> &tokens)
-    : module_name(module),
-      line_number(line_number),
-      buf(tokens)
-{
-    iter = buf.begin();
     Init();
 }
 
 void Parser::Init()
 {
-    type_store_["char"] = {"char", false};
-    type_store_["int"] = {"int", false};
-    type_store_["long"] = {"long", false};
-    type_store_["float"] = {"float", false};
-    type_store_["double"] = {"double", false};
+    compiler_state->type_store["char"] = {"char", false};
+    compiler_state->type_store["int"] = {"int", false};
+    compiler_state->type_store["long"] = {"long", false};
+    compiler_state->type_store["float"] = {"float", false};
+    compiler_state->type_store["double"] = {"double", false};
 }
 
-bool Parser::IsChar(const std::vector<std::string>::iterator &it, char c)
+bool Parser::IsEqual(const std::vector<std::string>::iterator &it, char c)
 {
     return (*it->c_str() == c) && (it->length() == 1);
 }
 
-bool Parser::SkipSemicolon(CompilerState &state)
+bool Parser::SkipSemicolon()
 {
 
     PDEBUG(__FUNCTION__);
 
-    if (IsChar(state.iter, ';'))
+    if (IsEqual(compiler_state->iter, ';'))
     {
-        state.iter++;
+        compiler_state->iter++;
         return true;
     }
     return false;
 }
 
-void Parser::SkipLF(CompilerState &state)
+void Parser::SkipLF()
 {
-
-    while (state.iter != state.buf.end())
+    while (compiler_state->iter != compiler_state->buf.end())
     {
-        char c = (*state.iter).c_str()[0];
-        PDEBUG("char is " + *state.iter + ", " + std::to_string(int(c)).c_str());
-
-        if (IsChar(state.iter, '\n'))
+        if (IsEqual(compiler_state->iter, '\n'))
         {
-
-            state.line_number++;
-            state.iter++;
+            compiler_state->line_number++;
+            compiler_state->iter++;
         }
         else
         {
@@ -73,179 +53,176 @@ void Parser::SkipLF(CompilerState &state)
     }
 }
 
-bool Parser::TypeDefinition(const std::shared_ptr<Node> &node, CompilerState &state)
+bool Parser::TypeDefinition(const std::shared_ptr<Node> &node)
 {
-    PDEBUG(*state.iter);
+    PDEBUG(*compiler_state->iter);
 
-    auto typeName = *(state.iter);
-    state.iter++;
+    auto typeName = *(compiler_state->iter);
+    compiler_state->iter++;
     PDEBUG(__FUNCTION__);
-    if (state.type_store_.find(typeName) == state.type_store_.end())
+    if (compiler_state->type_store.find(typeName) == compiler_state->type_store.end())
     {
-        state.errors.push_back({state.module_name, state.line_number, "Type name is not defined"});
+        compiler_state->errors.push_back({compiler_state->module_name, compiler_state->line_number, "Type name is not defined"});
         return false;
     }
 
-    SkipLF(state);
+    SkipLF();
 
     auto type_node = std::shared_ptr<Node>(new Node);
     type_node->type = kObjectType;
     type_node->syntax = typeName;
     node->child.push_back(type_node);
 
-    PDEBUG("OK");
+    // PDEBUG("OK");
     return true;
 }
 
-bool Parser::ArgumentDeclaration(const std::shared_ptr<Node> &node, CompilerState &state)
+bool Parser::ArgumentDeclaration(const std::shared_ptr<Node> &node)
 {
     PDEBUG(__FUNCTION__);
-    PDEBUG("OK");
+    // PDEBUG("OK");
     return true;
 }
 
-bool Parser::ArgumentDeclarationList(const std::shared_ptr<Node> &node, CompilerState &state)
+bool Parser::ArgumentDeclarationList(const std::shared_ptr<Node> &node)
 {
     PDEBUG(__FUNCTION__);
 
-    if (!IsChar(state.iter, '('))
+    if (!IsEqual(compiler_state->iter, '('))
     {
-        state.errors.push_back({state.module_name, state.line_number, "Unexpected syntax : '('"});
+        compiler_state->errors.push_back({compiler_state->module_name, compiler_state->line_number, "Unexpected syntax : '('"});
         return false;
     }
 
-    ++(state.iter);
-    SkipLF(state);
+    ++(compiler_state->iter);
+    SkipLF();
 
-    while (!IsChar(state.iter, ')'))
+    while (!IsEqual(compiler_state->iter, ')'))
     {
-        ArgumentDeclaration(node, state);
+        ArgumentDeclaration(node);
     }
 
-    ++(state.iter);
-    SkipLF(state);
+    ++(compiler_state->iter);
+    SkipLF();
 
-    PDEBUG("OK");
+    // PDEBUG("OK");
     return true;
 }
 
-bool Parser::FunctionIdentifier(const std::shared_ptr<Node> &node, CompilerState &state)
+bool Parser::FunctionIdentifier(const std::shared_ptr<Node> &node)
 {
     PDEBUG(__FUNCTION__);
 
-    auto identifier = *(state.iter);
+    auto identifier = *(compiler_state->iter);
 
-    auto universalName = state.module_name + "::" + identifier;
-    state.iter++;
+    auto universalName = compiler_state->module_name + "::" + identifier;
+    compiler_state->iter++;
 
-    if (state.identifier_store_.find(universalName) != state.identifier_store_.end())
+    if (compiler_state->identifier_store.find(universalName) != compiler_state->identifier_store.end())
     {
-        state.errors.push_back({state.module_name, state.line_number, "Function : " + identifier + " is already defined"});
+        compiler_state->errors.push_back({compiler_state->module_name, compiler_state->line_number, "Function : " + identifier + " is already defined"});
         return false;
     }
 
-    SkipLF(state);
+    SkipLF();
 
     node->type = kFuncIdentifier;
     node->syntax = identifier;
-    state.identifier_store_[universalName] = IdentifierInfo{identifier, state.module_name};
+    compiler_state->identifier_store[universalName] = IdentifierInfo{identifier, compiler_state->module_name};
 
-    PDEBUG("OK");
+    // PDEBUG("OK");
     return true;
 }
 
-bool Parser::ReturnStatement(const std::shared_ptr<Node> &node, CompilerState &state)
+bool Parser::ReturnStatement(const std::shared_ptr<Node> &node)
 {
     PDEBUG(__FUNCTION__);
-    PDEBUG(*state.iter);
 
-    if (*state.iter != "return")
+    if (*compiler_state->iter != "return")
     {
         return false;
     }
 
-    ++(state.iter);
-    SkipLF(state);
+    ++(compiler_state->iter);
+    SkipLF();
 
     // TODO: overwrite to evaluate any expressions
-    if (*state.iter != "2")
+    if (*compiler_state->iter != "2")
     {
-        state.errors.push_back({state.module_name, state.line_number, "Unexpected syntax : " + *state.iter});
+        compiler_state->errors.push_back({compiler_state->module_name, compiler_state->line_number, "Unexpected syntax : " + *compiler_state->iter});
         return false;
     }
 
-    ++(state.iter);
-    SkipLF(state);
+    ++(compiler_state->iter);
+    SkipLF();
 
-    if (!IsChar(state.iter, ';'))
+    if (!IsEqual(compiler_state->iter, ';'))
     {
-        state.errors.push_back({state.module_name, state.line_number, "Unexpected syntax : " + *state.iter});
+        compiler_state->errors.push_back({compiler_state->module_name, compiler_state->line_number, "Unexpected syntax : " + *compiler_state->iter});
         return false;
     }
 
-    PDEBUG("OK");
+    // PDEBUG("OK");
     return true;
 }
 
-bool Parser::CompoundStatement(const std::shared_ptr<Node> &node, CompilerState &state)
+bool Parser::CompoundStatement(const std::shared_ptr<Node> &node)
 {
     PDEBUG(__FUNCTION__);
 
-    if (!IsChar(state.iter, '{'))
+    if (!IsEqual(compiler_state->iter, '{'))
     {
         // single expression
     }
     else
     {
         // multiple expressions
-        ++(state.iter);
-        SkipLF(state);
+        ++(compiler_state->iter);
+        SkipLF();
 
         while (true)
         {
 
-            ReturnStatement(node, state) && SkipSemicolon(state);
+            ReturnStatement(node) && SkipSemicolon();
 
-            SkipLF(state);
+            SkipLF();
 
-            if (IsChar(state.iter, '}'))
+            if (IsEqual(compiler_state->iter, '}'))
             {
-                ++(state.iter);
-                SkipLF(state);
+                ++(compiler_state->iter);
+                SkipLF();
                 break;
             }
 
-            // if (IsChar(state.iter, ',')) {
-            //     ++(state.iter);
-            //     SkipLF(state);
+            // if (IsEqual(compiler_state->iter, ',')) {
+            //     ++(compiler_state->iter);
+            //     SkipLF();
             // } else {
-            //     state.errors.push_back({ state.module_name, state.line_number, "Unexpected syntax : " + *state.iter });
+            //     compiler_state->errors.push_back({ compiler_state->module_name, compiler_state->line_number, "Unexpected syntax : " + *compiler_state->iter });
             //     return false;
             // }
         };
     }
 
-    ++(state.iter);
-    SkipLF(state);
-    PDEBUG("OK");
+    ++(compiler_state->iter);
+    SkipLF();
+    // PDEBUG("OK");
     return true;
 }
 
-bool Parser::FunctionDefinition(const std::shared_ptr<Node> &node, CompilerState &state)
+bool Parser::FunctionDefinition(const std::shared_ptr<Node> &node)
 {
     PDEBUG(__FUNCTION__);
 
-    std::shared_ptr<Node> function(new Node);
+    std::shared_ptr<Node> func_node(new Node);
 
-    auto iter = state.iter;
-
-    if (TypeDefinition(function, state))
+    if (TypeDefinition(func_node))
         PDEBUG("OK");
-    if (FunctionIdentifier(function, state))
+    if (FunctionIdentifier(func_node))
         PDEBUG("OK");
-    if (ArgumentDeclarationList(function, state))
+    if (ArgumentDeclarationList(func_node))
         PDEBUG("OK");
-    if (CompoundStatement(function, state))
+    if (CompoundStatement(func_node))
         PDEBUG("OK");
 
     node->type = kFuncDefinition;
@@ -253,17 +230,15 @@ bool Parser::FunctionDefinition(const std::shared_ptr<Node> &node, CompilerState
     return true;
 }
 
-bool Parser::SyntaxCheck(const std::string module_name, const std::vector<std::string> &tokens)
+bool Parser::SyntaxCheck()
 {
-    CompilerState compiler_state(module_name, tokens);
-
     auto root_node = std::shared_ptr<Node>(new Node(kRoot, "/"));
 
-    FunctionDefinition(root_node, compiler_state);
+    FunctionDefinition(root_node);
 
-    if (compiler_state.errors.size() > 0)
+    if (compiler_state->errors.size() > 0)
     {
-        for (auto e : compiler_state.errors)
+        for (auto e : compiler_state->errors)
         {
             std::cout << e.message << std::endl;
         }
