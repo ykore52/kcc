@@ -20,7 +20,7 @@ int Compile(const std::string &module_name, std::vector<char> &buffer)
      std::cout << "--- Compile start ---" << std::endl;
 
     Tokenizer tokenizer;
-    // std::vector<std::string> tokens = tokenizer.Tokenize(buffer);
+    std::vector<std::string> tokens = tokenizer.Tokenize(buffer);
 
     // std::cout << "--- tokenization result ---" << std::endl;
     // for (auto token : tokens)

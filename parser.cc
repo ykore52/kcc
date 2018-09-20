@@ -10,6 +10,33 @@ Parser::Parser(const std::shared_ptr<CompilerState> &compiler_state) : compiler_
     Init();
 }
 
+bool Parser::SyntaxCheck(std::shared_ptr<Node> &root_node)
+{
+    auto root_node = std::shared_ptr<Node>(new Node(kRoot, "/"));
+
+    bool result = FunctionDefinition(root_node);
+
+    if (!result || compiler_state->errors.size() > 0)
+    {
+        for (auto e : compiler_state->errors)
+        {
+            std::cout << e.message << std::endl;
+        }
+
+        return false;
+    }
+
+    return true;
+}
+
+int Parser::GenerateAssembly(const std::shared_ptr<Node> &ast_root, std::string *assembly)
+{
+    auto node = ast_root;
+    while (true) {
+
+    }
+}
+
 void Parser::Init()
 {
     compiler_state->type_store["char"] = {"char", false};
@@ -68,19 +95,19 @@ bool Parser::TypeDefinition(const std::shared_ptr<Node> &node)
 
     SkipLF();
 
-    auto type_node = std::shared_ptr<Node>(new Node);
-    type_node->type = kObjectType;
-    type_node->syntax = typeName;
-    node->child.push_back(type_node);
+    auto child = std::shared_ptr<Node>(new Node);
+    child->type = kObjectType;
+    child->syntax = typeName;
+    node->child.push_back(child);
 
-    // PDEBUG("OK");
+    
     return true;
 }
 
 bool Parser::ArgumentDeclaration(const std::shared_ptr<Node> &node)
 {
     PDEBUG(__FUNCTION__);
-    // PDEBUG("OK");
+    
     return true;
 }
 
@@ -105,7 +132,7 @@ bool Parser::ArgumentDeclarationList(const std::shared_ptr<Node> &node)
     ++(compiler_state->iter);
     SkipLF();
 
-    // PDEBUG("OK");
+    
     return true;
 }
 
@@ -130,7 +157,7 @@ bool Parser::FunctionIdentifier(const std::shared_ptr<Node> &node)
     node->syntax = identifier;
     compiler_state->identifier_store[universalName] = IdentifierInfo{identifier, compiler_state->module_name};
 
-    // PDEBUG("OK");
+    
     return true;
 }
 
@@ -146,7 +173,7 @@ bool Parser::ReturnStatement(const std::shared_ptr<Node> &node)
     ++(compiler_state->iter);
     SkipLF();
 
-    // TODO: overwrite to evaluate any expressions
+    // TODO: To evaluate any expressions
     if (*compiler_state->iter != "2")
     {
         compiler_state->errors.push_back({compiler_state->module_name, compiler_state->line_number, "Unexpected syntax : " + *compiler_state->iter});
@@ -162,7 +189,7 @@ bool Parser::ReturnStatement(const std::shared_ptr<Node> &node)
         return false;
     }
 
-    // PDEBUG("OK");
+    
     return true;
 }
 
@@ -206,7 +233,7 @@ bool Parser::CompoundStatement(const std::shared_ptr<Node> &node)
 
     ++(compiler_state->iter);
     SkipLF();
-    // PDEBUG("OK");
+    
     return true;
 }
 
@@ -216,35 +243,14 @@ bool Parser::FunctionDefinition(const std::shared_ptr<Node> &node)
 
     std::shared_ptr<Node> func_node(new Node);
 
-    if (TypeDefinition(func_node))
-        PDEBUG("OK");
-    if (FunctionIdentifier(func_node))
-        PDEBUG("OK");
-    if (ArgumentDeclarationList(func_node))
-        PDEBUG("OK");
-    if (CompoundStatement(func_node))
-        PDEBUG("OK");
+    bool result = TypeDefinition(func_node) &&
+                  FunctionIdentifier(func_node) &&
+                  ArgumentDeclarationList(func_node) &&
+                  CompoundStatement(func_node);
 
     node->type = kFuncDefinition;
 
-    return true;
-}
-
-bool Parser::SyntaxCheck()
-{
-    auto root_node = std::shared_ptr<Node>(new Node(kRoot, "/"));
-
-    FunctionDefinition(root_node);
-
-    if (compiler_state->errors.size() > 0)
-    {
-        for (auto e : compiler_state->errors)
-        {
-            std::cout << e.message << std::endl;
-        }
-    }
-
-    return true;
+    return result;
 }
 
 } // namespace kcc
