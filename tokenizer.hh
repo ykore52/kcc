@@ -30,7 +30,7 @@ RESERVED_KW(KW_RETURN, "return");
 class Tokenizer
 {
   public:
-    std::vector<std::string> Tokenize(std::vector<char> &buffer);
+    void Tokenize(std::vector<char> &buffer, std::vector<std::string>* tokens);
 
   private:
     std::vector<char> FetchToken(std::vector<char> &buffer, std::vector<char>::iterator &iter);

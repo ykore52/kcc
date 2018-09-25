@@ -13,14 +13,25 @@
 namespace kcc {
 
 enum NodeType {
-  kRoot,
-
+  kProgram,
+  kDeclaration,
   kObjectType,
+
+  kIntegerLiteral,
+  kStringLiteral,
+
   kFuncDefinition,
   kFuncStorageClassSpecifier, // auto, register, static, extern, typedef,
                               // __decpspec(ms-specific)
   kFuncIdentifier,
+  kFuncCompoundStatement,
+  kFuncParamList,
+  kFuncParam,
+  kStatementReturn,
+
+  kPrimaryExpression
 };
+
 
 struct CompileErrorInfo {
   std::string module_name;
@@ -29,53 +40,96 @@ struct CompileErrorInfo {
 };
 
 struct TypeInfo {
-  std::string name;
+  std::string type_name;
   bool is_pointer;
-  std::map<std::string, TypeInfo> member;
+  std::map<std::string, std::shared_ptr<TypeInfo>> member;
 };
 
 struct IdentifierInfo {
-  std::string name;
+  std::string id;
   std::string module_name;
 };
 
-struct Argument {
-  TypeInfo type;
-  std::string name;
+struct ASTNode {
+  ASTNode() {}
+  ASTNode(const NodeType t) : node_type(t) {}
+  NodeType node_type;
 };
 
-struct Expression {
-  // expression type
-  NodeType expr_type;
+// ------------------------------------------------
+struct LiteralBase : public ASTNode {
+  LiteralBase(NodeType t, std::string value) : ASTNode(t) {}
+  std::string value;
+};
 
+struct IntegerLiteral : public LiteralBase {
+  IntegerLiteral(std::string value) : LiteralBase(kIntegerLiteral, value) {}
+};
+
+struct StringLiteral : public LiteralBase {
+  StringLiteral(std::string value) : LiteralBase(kStringLiteral, value) {}
+};
+
+// ------------------------------------------------
+struct ExpressionBase : public ASTNode {
+  ExpressionBase(NodeType t) : ASTNode(t) {}
   // child expression
-  std::shared_ptr<Expression> expr;
+  std::shared_ptr<ExpressionBase> expression;
 };
 
-struct IntegerConstant : public Expression {
-  std::string constant;
+// 一次式
+struct PrimaryExpression : public ExpressionBase {
+  PrimaryExpression() : ExpressionBase(kPrimaryExpression) {}
+  std::shared_ptr<LiteralBase> literal;
 };
 
-struct Statement {
-  NodeType statement_type;
+// ------------------------------------------------
+struct StatementBase : public ASTNode{
+  StatementBase(NodeType t) : ASTNode(t) {}
 };
 
-struct ReturnStatement : public Statement {
-  std::shared_ptr<Expression> return_expr;
+struct ReturnStatement : public StatementBase {
+  ReturnStatement() : StatementBase(kStatementReturn) {}
+  ReturnStatement(const std::shared_ptr<ExpressionBase> &e) : StatementBase(kStatementReturn), return_expression(e) {}
+  std::shared_ptr<ExpressionBase> return_expression;
 };
 
-struct Function {
+struct IfStatement : public StatementBase {};
+struct ForStatement : public StatementBase {};
+struct WhileStatement : public StatementBase {};
+
+// ------------------------------------------------
+
+struct Argument : public ASTNode {
+  Argument() : ASTNode(kFuncParamList) {}
+  std::shared_ptr<TypeInfo> var_type;
+  IdentifierInfo var;
+};
+
+typedef std::vector<Argument> ArgumentList;
+typedef std::vector<StatementBase> CompoundStatement;
+
+struct DeclarationBase : public ASTNode {
+  DeclarationBase(NodeType t) : ASTNode(t) {}
+};
+
+struct Declaration : public DeclarationBase {
+  Declaration() : DeclarationBase(kDeclaration) {}
+};
+
+struct Function : public DeclarationBase {
+  Function() : DeclarationBase(kFuncDefinition) {}
+  std::shared_ptr<TypeInfo> type;
   std::string function_name;
-  std::string module_name;
-
-  TypeInfo type;
-  std::vector<ArgumentInfo> args;
-  std::vector<Statement> statements;
+  ArgumentList arguments;
+  CompoundStatement statements;
 };
 
-struct GlobalScope { 
-  std::vector<Function> functions;
-}
+struct Program : public ASTNode {
+  Program() : ASTNode(kProgram) {}
+  std::vector<DeclarationBase> decl;
+};
+
 
 struct CompilerState {
   // module name
@@ -115,8 +169,8 @@ class Parser {
 public:
   Parser(const std::shared_ptr<CompilerState> &compiler_state);
 
-  bool SyntaxCheck();
-  int GenerateAssembly(std::string *assembly);
+  std::shared_ptr<Node> SyntaxCheck();
+  int GenerateAssembly(std::shared_ptr<Node> &node, std::string *assembly);
 
 private:
   void Init();
@@ -133,6 +187,10 @@ private:
   bool ReturnStatement(const std::shared_ptr<Node> &node);
   bool CompoundStatement(const std::shared_ptr<Node> &node);
   bool FunctionDefinition(const std::shared_ptr<Node> &node);
+  bool Expression(const std::shared_ptr<Node> &node);
+  bool IntegerLiteral(const std::shared_ptr<Node> &node);
+  bool StringLiteral(const std::shared_ptr<Node> &node);
+  bool Program(const std::shared_ptr<Node> &node), std::shared_ptr<Program> &program);
 
   std::shared_ptr<CompilerState> compiler_state;
 };

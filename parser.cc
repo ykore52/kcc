@@ -10,9 +10,9 @@ Parser::Parser(const std::shared_ptr<CompilerState> &compiler_state) : compiler_
     Init();
 }
 
-bool Parser::SyntaxCheck(std::shared_ptr<Node> &root_node)
+std::shared_ptr<Node> Parser::SyntaxCheck()
 {
-    auto root_node = std::shared_ptr<Node>(new Node(kRoot, "/"));
+    auto root_node = std::shared_ptr<Node>(new Node(kProgram, "/"));
 
     bool result = FunctionDefinition(root_node);
 
@@ -23,18 +23,57 @@ bool Parser::SyntaxCheck(std::shared_ptr<Node> &root_node)
             std::cout << e.message << std::endl;
         }
 
-        return false;
+        return nullptr;
     }
 
-    return true;
+    return root_node;
 }
 
-int Parser::GenerateAssembly(const std::shared_ptr<Node> &ast_root, std::string *assembly)
+int Parser::GenerateAssembly(std::shared_ptr<Node> &node, std::string *assembly)
 {
-    auto node = ast_root;
-    while (true) {
-
+    PDEBUG(node->syntax);
+    if (node->type == kProgram)
+    {
+        for (auto child : node->child)
+        {
+            GenerateAssembly(child, assembly);
+        }
     }
+
+    if (node->type == kFuncDefinition)
+    {
+        for (auto child : node->child)
+        {
+            PDEBUG(std::to_string(child->type));
+            GenerateAssembly(child, assembly);
+        }
+    }
+
+    if (node->type == kFuncIdentifier)
+    {
+        if (node->syntax == "main")
+        {
+            *assembly += ".globl main\n\nmain:\n";
+        }
+    }
+
+    if (node->type == kFuncCompoundStatement)
+    {
+        for (auto child : node->child)
+        {
+            GenerateAssembly(child, assembly);
+        }
+    }
+
+    if (node->type == kStatementReturn)
+    {
+        if (node->child[0]->type == kIntegerLiteral) {
+            *assembly += "movl    $" + node->child[0]->syntax + " eax\n";
+            *assembly += "ret\n";
+        }
+    }
+
+    return 0;
 }
 
 void Parser::Init()
@@ -66,7 +105,7 @@ bool Parser::SkipSemicolon()
 
 void Parser::SkipLF()
 {
-    while (compiler_state->iter != compiler_state->buf.end())
+    while (compiler_state->iter != std::end(compiler_state->buf))
     {
         if (IsEqual(compiler_state->iter, '\n'))
         {
@@ -82,12 +121,10 @@ void Parser::SkipLF()
 
 bool Parser::TypeDefinition(const std::shared_ptr<Node> &node)
 {
-    PDEBUG(*compiler_state->iter);
-
+    PDEBUG(__FUNCTION__);
     auto typeName = *(compiler_state->iter);
     compiler_state->iter++;
-    PDEBUG(__FUNCTION__);
-    if (compiler_state->type_store.find(typeName) == compiler_state->type_store.end())
+    if (compiler_state->type_store.find(typeName) == std::end(compiler_state->type_store))
     {
         compiler_state->errors.push_back({compiler_state->module_name, compiler_state->line_number, "Type name is not defined"});
         return false;
@@ -100,13 +137,13 @@ bool Parser::TypeDefinition(const std::shared_ptr<Node> &node)
     child->syntax = typeName;
     node->child.push_back(child);
 
-    
     return true;
 }
 
 bool Parser::ArgumentDeclaration(const std::shared_ptr<Node> &node)
 {
     PDEBUG(__FUNCTION__);
+    PDEBUG("out -> " + std::string(__FUNCTION__ ));
     
     return true;
 }
@@ -131,8 +168,7 @@ bool Parser::ArgumentDeclarationList(const std::shared_ptr<Node> &node)
 
     ++(compiler_state->iter);
     SkipLF();
-
-    
+    PDEBUG("out -> " + std::string(__FUNCTION__ ));
     return true;
 }
 
@@ -145,7 +181,7 @@ bool Parser::FunctionIdentifier(const std::shared_ptr<Node> &node)
     auto universalName = compiler_state->module_name + "::" + identifier;
     compiler_state->iter++;
 
-    if (compiler_state->identifier_store.find(universalName) != compiler_state->identifier_store.end())
+    if (compiler_state->identifier_store.find(universalName) != std::end(compiler_state->identifier_store))
     {
         compiler_state->errors.push_back({compiler_state->module_name, compiler_state->line_number, "Function : " + identifier + " is already defined"});
         return false;
@@ -156,8 +192,8 @@ bool Parser::FunctionIdentifier(const std::shared_ptr<Node> &node)
     node->type = kFuncIdentifier;
     node->syntax = identifier;
     compiler_state->identifier_store[universalName] = IdentifierInfo{identifier, compiler_state->module_name};
+    PDEBUG("out -> " + std::string(__FUNCTION__ ));
 
-    
     return true;
 }
 
@@ -170,17 +206,14 @@ bool Parser::ReturnStatement(const std::shared_ptr<Node> &node)
         return false;
     }
 
+    std::shared_ptr<Node> return_statement(new Node(kStatementReturn, "return"));
+    return_statement->parent = node;
+
     ++(compiler_state->iter);
     SkipLF();
 
-    // TODO: To evaluate any expressions
-    if (*compiler_state->iter != "2")
-    {
-        compiler_state->errors.push_back({compiler_state->module_name, compiler_state->line_number, "Unexpected syntax : " + *compiler_state->iter});
-        return false;
-    }
+    Expression(return_statement);
 
-    ++(compiler_state->iter);
     SkipLF();
 
     if (!IsEqual(compiler_state->iter, ';'))
@@ -189,7 +222,11 @@ bool Parser::ReturnStatement(const std::shared_ptr<Node> &node)
         return false;
     }
 
-    
+    return_statement->type = kStatementReturn;
+    return_statement->syntax = "return";
+    node->child.push_back(return_statement);
+    PDEBUG("out -> " + std::string(__FUNCTION__ ));
+
     return true;
 }
 
@@ -209,17 +246,17 @@ bool Parser::CompoundStatement(const std::shared_ptr<Node> &node)
 
         while (true)
         {
+            if (IsEqual(compiler_state->iter, '}'))
+            {               
+                ++(compiler_state->iter);
+                SkipLF();
+                break;
+            }
 
             ReturnStatement(node) && SkipSemicolon();
 
             SkipLF();
 
-            if (IsEqual(compiler_state->iter, '}'))
-            {
-                ++(compiler_state->iter);
-                SkipLF();
-                break;
-            }
 
             // if (IsEqual(compiler_state->iter, ',')) {
             //     ++(compiler_state->iter);
@@ -231,9 +268,12 @@ bool Parser::CompoundStatement(const std::shared_ptr<Node> &node)
         };
     }
 
-    ++(compiler_state->iter);
     SkipLF();
-    
+
+    node->type = kFuncCompoundStatement;
+    node->syntax = "compound statement";
+    PDEBUG("out -> " + std::string(__FUNCTION__ ));
+
     return true;
 }
 
@@ -248,9 +288,126 @@ bool Parser::FunctionDefinition(const std::shared_ptr<Node> &node)
                   ArgumentDeclarationList(func_node) &&
                   CompoundStatement(func_node);
 
-    node->type = kFuncDefinition;
+    func_node->type = kFuncDefinition;
+    func_node->syntax = "function";
+    func_node->parent = node;
+    node->child.push_back(func_node);
+    PDEBUG("out -> " + std::string(__FUNCTION__ ));
 
     return result;
+}
+
+bool Parser::Expression(const std::shared_ptr<Node> &node)
+{
+    PDEBUG(__FUNCTION__);
+    
+    std::shared_ptr<Node> expression(new Node);
+    if ((*compiler_state->iter).compare("\"") == 0)
+    {
+        // string literal
+        node->child.push_back(expression);
+        expression->parent = node;
+        expression->type = kPrimaryExpression;
+
+        ++(compiler_state->iter);
+        return StringLiteral(expression);
+    }
+    else
+    {
+        // number literal
+        bool is_numeric;
+        try
+        {
+            std::stoi(*compiler_state->iter);
+            is_numeric = true;
+        }
+        catch (const std::invalid_argument &e)
+        {
+            is_numeric = false;
+        }
+        catch (const std::out_of_range &e)
+        {
+            is_numeric = false;
+        }
+
+
+        if (is_numeric)
+        {
+            node->child.push_back(expression);
+            expression->parent = node;
+            expression->type = kPrimaryExpression;
+            return IntegerLiteral(expression);
+        }
+    }
+
+    // error
+    compiler_state->errors.push_back({compiler_state->module_name, compiler_state->line_number, "Unexpected expression : " + *compiler_state->iter});
+    return false;
+}
+
+bool Parser::StringLiteral(const std::shared_ptr<Node> &node)
+{
+    PDEBUG(__FUNCTION__);
+    std::string strings = *compiler_state->iter;
+    ++(compiler_state->iter);
+
+    if (!(*compiler_state->iter).compare("\""))
+    {
+        compiler_state->errors.push_back({compiler_state->module_name, compiler_state->line_number, "The end of '\"' is not found : " + *compiler_state->iter});
+        ++(compiler_state->iter);
+        return false;
+    }
+
+    std::shared_ptr<Node> literal(new Node);
+    literal->parent = node;
+    literal->type = kStringLiteral;
+    literal->syntax = strings;
+
+    node->child.push_back(literal);
+
+    ++(compiler_state->iter);
+    PDEBUG("out -> " + std::string(__FUNCTION__ ));
+    return true;
+}
+
+bool Parser::IntegerLiteral(const std::shared_ptr<Node> &node)
+{
+    PDEBUG(__FUNCTION__);
+
+    try
+    {
+        std::stoi(*compiler_state->iter);        
+    }
+    catch (const std::invalid_argument &e)
+    {
+        compiler_state->errors.push_back({compiler_state->module_name, compiler_state->line_number, "invalid argument: " + *compiler_state->iter});
+        return false;
+    }
+    catch (const std::out_of_range &e)
+    {
+        compiler_state->errors.push_back({compiler_state->module_name, compiler_state->line_number, "out of range: " + *compiler_state->iter});
+        return false;
+    }
+
+    std::shared_ptr<Node> integer(new Node);
+    integer->parent = node;
+    integer->type = kIntegerLiteral;
+    integer->syntax = *compiler_state->iter;
+
+    node->child.push_back(integer);
+
+    ++(compiler_state->iter);
+    PDEBUG("out -> " + std::string(__FUNCTION__ ));
+    return true;
+}
+
+bool Parser::Program(const std::shared_ptr<Node> &node), std::shared_ptr<Program> &program) {
+
+    if (!program) {
+        return false;
+    }
+
+    program = std::shared_ptr<Program>(new Program);
 }
 
 } // namespace kcc

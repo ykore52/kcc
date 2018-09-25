@@ -11,11 +11,11 @@ namespace kcc
 {
 
 // Tokenizer
-std::vector<std::string> Tokenizer::Tokenize(std::vector<char> &buffer)
+void Tokenizer::Tokenize(std::vector<char> &buffer, std::vector<std::string>* tokens)
 {
-    std::vector<std::string> tokens;
-    auto iter = buffer.begin();
-    while (iter != buffer.end())
+    auto iter = std::begin(buffer);
+    
+    while (iter != std::end(buffer))
     {
         auto token = FetchToken(buffer, iter);
         if (token.size() == 0)
@@ -23,28 +23,29 @@ std::vector<std::string> Tokenizer::Tokenize(std::vector<char> &buffer)
             continue;
         }
 
-        if (ReadReservedKeyword(tokens, token, KW_INT))
-        {
-            continue;
-        }
+        // if (ReadReservedKeyword(tokens, token, KW_INT))
+        // {
+        //     tokens.push_back(std::string(token.begin(), token.end()));
+        //     continue;
+        // }
 
-        if (ReadReservedKeyword(tokens, token, KW_RETURN))
-        {
-            continue;
-        }
+        // std::cout << "word : "<< std::string(token.begin(), token.end()) << std::endl;
+        // if (ReadReservedKeyword(tokens, token, KW_RETURN))
+        // {
+        //     tokens.push_back(std::string(token.begin(), token.end()));
+        //     continue;
+        // }
 
         PrintCharVector(token);
-        auto s = std::string(token.begin(), token.end());
-        tokens.push_back(s);
+        tokens->push_back(std::string(token.begin(), token.end()));
     }
-    return tokens;
 }
 
 std::vector<char> Tokenizer::FetchToken(std::vector<char> &buffer, std::vector<char>::iterator &iter)
 {
     std::vector<char> token;
 
-    while (iter != buffer.end())
+    while (iter != std::end(buffer))
     {
         // Unrecognized charachters (Nonprintable)
         if ((0x01 <= *iter && *iter <= 0x08) || (0x0b <= *iter && *iter <= 0x0c) ||
@@ -79,7 +80,6 @@ std::vector<char> Tokenizer::FetchToken(std::vector<char> &buffer, std::vector<c
             ('a' <= *iter && *iter <= 'z') || *iter == '_')
         {
             token.push_back(*iter);
-
             ++iter;
             continue;
         }

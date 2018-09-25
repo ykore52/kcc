@@ -20,7 +20,7 @@ int Compile(const std::string &module_name, std::vector<char> &buffer)
      std::cout << "--- Compile start ---" << std::endl;
 
     Tokenizer tokenizer;
-    std::vector<std::string> tokens = tokenizer.Tokenize(buffer);
+    // auto tokens = tokenizer.Tokenize(buffer);
 
     // std::cout << "--- tokenization result ---" << std::endl;
     // for (auto token : tokens)
@@ -30,12 +30,21 @@ int Compile(const std::string &module_name, std::vector<char> &buffer)
 
     std::cout << "--- syntax check ---" << std::endl;
     auto compiler_state = std::shared_ptr<CompilerState>(new CompilerState);
-    compiler_state->buf = tokenizer.Tokenize(buffer);
-    compiler_state->iter = compiler_state->buf.begin();
+    tokenizer.Tokenize(buffer, &compiler_state->buf);
+    compiler_state->iter = std::begin(compiler_state->buf);
     compiler_state->line_number = 0;
-    Parser parser(compiler_state);
-    parser.SyntaxCheck();
 
+    // for (auto i = compiler_state->buf.begin(); i != compiler_state->buf.end(); i++) {
+    //     std::cout << static_cast<const void*>(&std::end(compiler_state->buf)) << ":" << *i << ":" << std::endl;
+    // }
+
+    Parser parser(compiler_state);
+    auto node = parser.SyntaxCheck();
+
+    std::string assembly;
+    parser.GenerateAssembly(node, &assembly);
+
+    std::cout << assembly << std::endl;
     return 0;
 }
 
