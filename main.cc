@@ -17,9 +17,8 @@ struct CmdOptions
 // Compiling a source codesource codes.
 int Compile(const std::string &module_name, std::vector<char> &buffer)
 {
-     std::cout << "--- Compile start ---" << std::endl;
+    //  std::cout << "--- Compile start ---" << std::endl;
 
-    Tokenizer tokenizer;
     // auto tokens = tokenizer.Tokenize(buffer);
 
     // std::cout << "--- tokenization result ---" << std::endl;
@@ -28,23 +27,30 @@ int Compile(const std::string &module_name, std::vector<char> &buffer)
     //     std::cout << token << ":" << token.length() << std::endl;
     // }
 
-    std::cout << "--- syntax check ---" << std::endl;
+    std::cout << "--- syntax check begin ---" << std::endl;
     auto compiler_state = std::shared_ptr<CompilerState>(new CompilerState);
+    Tokenizer tokenizer;
     tokenizer.Tokenize(buffer, &compiler_state->buf);
     compiler_state->iter = std::begin(compiler_state->buf);
     compiler_state->line_number = 0;
+    std::cout << "--- syntax check end ---" << std::endl;
+
 
     // for (auto i = compiler_state->buf.begin(); i != compiler_state->buf.end(); i++) {
     //     std::cout << static_cast<const void*>(&std::end(compiler_state->buf)) << ":" << *i << ":" << std::endl;
     // }
 
-    // Parser parser(compiler_state);
-    // auto node = parser.SyntaxCheck();
+    std::cout << "fuga" << std::endl;
 
-    // std::string assembly;
-    // parser.GenerateAssembly(node, &assembly);
+    Parser parser(compiler_state);
+    auto prog = parser.SyntaxCheck();
+    PDEBUG("================= Code Generation ========================");
+    prog->Stdout();
 
-    // std::cout << assembly << std::endl;
+    std::string assembly;
+    parser.GenerateAssembly(prog, &assembly);
+
+    std::cout << assembly << std::endl;
     return 0;
 }
 

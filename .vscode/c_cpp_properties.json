@@ -1,0 +1,40 @@
+{
+    "configurations": [
+        {
+            "name": "Win32",
+            "includePath": [
+                "D:/msys64/mingw64/include/c++/7.3.0",
+                "D:/msys64/mingw64/lib/clang/5.0.1/include",
+                "D:/msys64/mingw64/x86_64-w64-mingw32/include",
+                "${workspaceFolder}"
+            ],
+            "forcedInclude": [
+                "D:/msys64/mingw64/include/c++/7.3.0/",
+                "D:/msys64/mingw64/lib/clang/5.0.1/include/*",
+                "D:/msys64/mingw64/x86_64-w64-mingw32/include/*"
+            ],
+            "defines": [
+                "_DEBUG",
+                "UNICODE",
+                "_UNICODE",
+                "__cdecl=__attribute__((__cdecl__))"
+            ],
+            "args": [
+                "-std=c++11"
+            ],
+            "windowsSdkVersion": "8.1",
+            "compilerPath": "D:/msys64/mingw64/bin/gcc.exe",
+            "cStandard": "c11",
+            "cppStandard": "c++14",
+            "intelliSenseMode": "gcc-x64",
+            "browse": {
+                "path": [
+                    "${workspaceFolder}"
+                ],
+                "limitSymbolsToIncludedHeaders": true,
+                "databaseFilename": ""
+            }
+        }
+    ],
+    "version": 4
+}

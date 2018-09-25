@@ -1,10 +1,15 @@
 #!/bin/bash
 
-BINKCC="./bin/kcc"
+BINKCC="./bin/kcc.exe"
+
+CC=$(which clang++)
+CC=$(which g++)
+OPTS="-std=c++11 -g3"
+
 
 function build() {
     sources=$(find . -type f -name "*.cc" -and -not -name "*_test.cc")
-    g++ -std=c++11 ${sources} -o ${BINKCC}
+    ${CC} ${OPTS} ${sources} -o ${BINKCC}
 }
 
 function unittest() {

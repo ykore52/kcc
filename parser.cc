@@ -28,51 +28,9 @@ std::shared_ptr<Program> Parser::SyntaxCheck()
     return prog;
 }
 
-int Parser::GenerateAssembly(std::shared_ptr<Node> &node, std::string *assembly)
+int Parser::GenerateAssembly(std::shared_ptr<Program> &node, std::string *assembly)
 {
-    PDEBUG(node->syntax);
-    if (node->type == kProgram)
-    {
-        for (auto child : node->child)
-        {
-            GenerateAssembly(child, assembly);
-        }
-    }
-
-    if (node->type == kFuncDefinition)
-    {
-        for (auto child : node->child)
-        {
-            PDEBUG(std::to_string(child->type));
-            GenerateAssembly(child, assembly);
-        }
-    }
-
-    if (node->type == kFuncIdentifier)
-    {
-        if (node->syntax == "main")
-        {
-            *assembly += ".globl main\n\nmain:\n";
-        }
-    }
-
-    if (node->type == kFuncCompoundStatement)
-    {
-        for (auto child : node->child)
-        {
-            GenerateAssembly(child, assembly);
-        }
-    }
-
-    if (node->type == kStatementReturn)
-    {
-        if (node->child[0]->type == kIntegerLiteral)
-        {
-            *assembly += "movl    $" + node->child[0]->syntax + " eax\n";
-            *assembly += "ret\n";
-        }
-    }
-
+    *assembly = node->Code();
     return 0;
 }
 
@@ -119,7 +77,7 @@ void Parser::SkipLF()
     }
 }
 
-// bool Parser::TypeDefinition(const std::shared_ptr<Node> &node)
+// bool Parser::TypeDefinition(const std::shared_ptr<node> &node)
 // {
 //     PDEBUG(__FUNCTION__);
 //     auto typeName = *(compiler_state->iter);
@@ -132,7 +90,7 @@ void Parser::SkipLF()
 
 //     SkipLF();
 
-//     auto child = std::shared_ptr<Node>(new Node);
+//     auto child = std::shared_ptr<node>(new node);
 //     child->type = kObjectType;
 //     child->syntax = typeName;
 //     node->child.push_back(child);
@@ -140,7 +98,7 @@ void Parser::SkipLF()
 //     return true;
 // }
 
-// bool Parser::ArgumentDeclaration(const std::shared_ptr<Node> &node)
+// bool Parser::ArgumentDeclaration(const std::shared_ptr<node> &node)
 // {
 //     PDEBUG(__FUNCTION__);
 //     PDEBUG("out -> " + std::string(__FUNCTION__ ));
@@ -148,7 +106,7 @@ void Parser::SkipLF()
 //     return true;
 // }
 
-// bool Parser::ArgumentDeclarationList(const std::shared_ptr<Node> &node)
+// bool Parser::ArgumentDeclarationList(const std::shared_ptr<node> &node)
 // {
 //     PDEBUG(__FUNCTION__);
 
@@ -172,7 +130,7 @@ void Parser::SkipLF()
 //     return true;
 // }
 
-// bool Parser::FunctionIdentifier(const std::shared_ptr<Node> &node)
+// bool Parser::FunctionIdentifier(const std::shared_ptr<node> &node)
 // {
 //     PDEBUG(__FUNCTION__);
 
@@ -197,7 +155,7 @@ void Parser::SkipLF()
 //     return true;
 // }
 
-// bool Parser::ReturnStatement(const std::shared_ptr<Node> &node)
+// bool Parser::ReturnStatement(const std::shared_ptr<node> &node)
 // {
 //     PDEBUG(__FUNCTION__);
 
@@ -206,7 +164,7 @@ void Parser::SkipLF()
 //         return false;
 //     }
 
-//     std::shared_ptr<Node> return_statement(new Node(kStatementReturn, "return"));
+//     std::shared_ptr<node> return_statement(new node(kStatementReturn, "return"));
 //     return_statement->parent = node;
 
 //     ++(compiler_state->iter);
@@ -230,7 +188,7 @@ void Parser::SkipLF()
 //     return true;
 // }
 
-// bool Parser::CompoundStatement(const std::shared_ptr<Node> &node)
+// bool Parser::CompoundStatement(const std::shared_ptr<node> &node)
 // {
 //     PDEBUG(__FUNCTION__);
 
@@ -276,11 +234,11 @@ void Parser::SkipLF()
 //     return true;
 // }
 
-// bool Parser::FunctionDefinition(const std::shared_ptr<Node> &node)
+// bool Parser::FunctionDefinition(const std::shared_ptr<node> &node)
 // {
 //     PDEBUG(__FUNCTION__);
 
-//     std::shared_ptr<Node> func_node(new Node);
+//     std::shared_ptr<node> func_node(new node);
 
 //     bool result = TypeDefinition(func_node) &&
 //                   FunctionIdentifier(func_node) &&
@@ -296,11 +254,11 @@ void Parser::SkipLF()
 //     return result;
 // }
 
-// bool Parser::Expression(const std::shared_ptr<Node> &node)
+// bool Parser::Expression(const std::shared_ptr<node> &node)
 // {
 //     PDEBUG(__FUNCTION__);
 
-//     std::shared_ptr<Node> expression(new Node);
+//     std::shared_ptr<node> expression(new node);
 //     if ((*compiler_state->iter).compare("\"") == 0)
 //     {
 //         // string literal
@@ -343,7 +301,7 @@ void Parser::SkipLF()
 //     return false;
 // }
 
-// bool Parser::StringLiteral(const std::shared_ptr<Node> &node)
+// bool Parser::StringLiteral(const std::shared_ptr<node> &node)
 // {
 //     PDEBUG(__FUNCTION__);
 //     std::string strings = *compiler_state->iter;
@@ -356,7 +314,7 @@ void Parser::SkipLF()
 //         return false;
 //     }
 
-//     std::shared_ptr<Node> literal(new Node);
+//     std::shared_ptr<node> literal(new node);
 //     literal->parent = node;
 //     literal->type = kStringLiteral;
 //     literal->syntax = strings;
@@ -368,7 +326,7 @@ void Parser::SkipLF()
 //     return true;
 // }
 
-// bool Parser::IntegerLiteral(const std::shared_ptr<Node> &node)
+// bool Parser::IntegerLiteral(const std::shared_ptr<node> &node)
 // {
 //     PDEBUG(__FUNCTION__);
 
@@ -387,7 +345,7 @@ void Parser::SkipLF()
 //         return false;
 //     }
 
-//     std::shared_ptr<Node> integer(new Node);
+//     std::shared_ptr<node> integer(new node);
 //     integer->parent = node;
 //     integer->type = kIntegerLiteral;
 //     integer->syntax = *compiler_state->iter;
@@ -399,7 +357,7 @@ void Parser::SkipLF()
 //     return true;
 // }
 
-// bool Parser::Program(const std::shared_ptr<Node> &node), std::shared_ptr<Program> &program) {
+// bool Parser::Program(const std::shared_ptr<node> &node), std::shared_ptr<Program> &program) {
 
 //     if (!program) {
 //         return false;
@@ -423,7 +381,7 @@ bool Parser::MakeTypeDefinition(std::shared_ptr<TypeInfo> &type)
 
     SkipLF();
 
-    std::shared_ptr<TypeInfo> type_def(new TypeInfo{typeName, false, std::map<std::string, std::shared_ptr<TypeInfo>>()});
+    type = std::shared_ptr<TypeInfo>(new TypeInfo{typeName, false, std::map<std::string, std::shared_ptr<TypeInfo>>()});
     return true;
 }
 
@@ -480,6 +438,7 @@ bool Parser::MakeFunctionIdentifier(std::string &function_identifier)
 
     function_identifier = identifier;
 
+    PDEBUG(universalName);
     compiler_state->identifier_store[universalName] = IdentifierInfo{identifier, compiler_state->module_name};
     PDEBUG("out -> " + std::string(__FUNCTION__));
 
@@ -499,7 +458,9 @@ bool Parser::MakeReturnStatement(std::shared_ptr<ReturnStatement> &return_statem
     SkipLF();
 
     std::shared_ptr<PrimaryExpression> primary_expression;
-    MakeExpression(primary_expression);
+    bool result = MakeExpression(primary_expression);
+
+    return_statement = std::shared_ptr<ReturnStatement>(new ReturnStatement());
     return_statement->return_expression = std::static_pointer_cast<ExpressionBase>(primary_expression);
 
     SkipLF();
@@ -567,6 +528,8 @@ bool Parser::MakeFunctionDefinition(std::shared_ptr<Function> &function)
 
     std::shared_ptr<Node> func_node(new Node);
 
+    function = std::shared_ptr<Function>(new Function());
+
     bool result = MakeTypeDefinition(function->type) &&
                   MakeFunctionIdentifier(function->function_name) &&
                   MakeArgumentDeclarationList(function->arguments) &&
@@ -593,10 +556,13 @@ bool Parser::MakeExpression(std::shared_ptr<PrimaryExpression> &primary_expressi
         bool result = MakeStringLiteral(string_literal);
         if (result)
         {
-            primary_expression = std::shared_ptr<PrimaryExpression>(new PrimaryExpression(std::dynamic_pointer_cast<LiteralBase>(string_literal)));
+            auto temp = std::dynamic_pointer_cast<LiteralBase>(string_literal);
+            primary_expression = std::shared_ptr<PrimaryExpression>(
+                new PrimaryExpression(temp)
+            );
+            PDEBUG("out -> " + std::string(__FUNCTION__));
             return true;
         }
-        return false;
     }
     else
     {
@@ -619,10 +585,13 @@ bool Parser::MakeExpression(std::shared_ptr<PrimaryExpression> &primary_expressi
         if (is_numeric)
         {
             std::shared_ptr<IntegerLiteral> integer_literal;
-            bool result = MakeIntegerLiteral(expression, integer_literal);
+            bool result = MakeIntegerLiteral(integer_literal);
             if (result)
-            {
-                primary_expression = std::shared_ptr<PrimaryExpression>(new PrimaryExpression(std::dynamic_pointer_cast<LiteralBase>(integer_literal)));
+            {               
+                auto temp = std::dynamic_pointer_cast<LiteralBase>(integer_literal);
+                primary_expression = std::shared_ptr<PrimaryExpression>(new PrimaryExpression(temp));
+                PDEBUG("out -> " + std::string(__FUNCTION__));
+                return true;
             }
         }
     }
@@ -671,7 +640,7 @@ bool Parser::MakeIntegerLiteral(std::shared_ptr<IntegerLiteral> &integer_literal
         return false;
     }
 
-    interger_literal = std::shared_ptr<IntegerLiteral>(new IntegerLiteral(*compiler_state->iter));
+    integer_literal = std::shared_ptr<IntegerLiteral>(new IntegerLiteral(*compiler_state->iter));
 
     ++(compiler_state->iter);
     PDEBUG("out -> " + std::string(__FUNCTION__));
@@ -680,15 +649,22 @@ bool Parser::MakeIntegerLiteral(std::shared_ptr<IntegerLiteral> &integer_literal
 
 bool Parser::MakeProgram(std::shared_ptr<Program> &program)
 {
-
-    if (!program)
+    if (program)
     {
         return false;
     }
 
     program = std::shared_ptr<Program>(new Program());
 
-    return MakeFunctionDefinition(program);
+    std::shared_ptr<Function> function;
+
+    bool result = MakeFunctionDefinition(function);
+    if (result) {
+        program->decl.push_back(function);
+        return true;
+    }
+    
+    return false;
 }
 
 } // namespace kcc

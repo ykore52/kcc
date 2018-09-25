@@ -14,7 +14,6 @@ namespace kcc
 void Tokenizer::Tokenize(std::vector<char> &buffer, std::vector<std::string>* tokens)
 {
     auto iter = std::begin(buffer);
-    
     while (iter != std::end(buffer))
     {
         auto token = FetchToken(buffer, iter);
