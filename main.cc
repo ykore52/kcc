@@ -38,13 +38,13 @@ int Compile(const std::string &module_name, std::vector<char> &buffer)
     //     std::cout << static_cast<const void*>(&std::end(compiler_state->buf)) << ":" << *i << ":" << std::endl;
     // }
 
-    Parser parser(compiler_state);
-    auto node = parser.SyntaxCheck();
+    // Parser parser(compiler_state);
+    // auto node = parser.SyntaxCheck();
 
-    std::string assembly;
-    parser.GenerateAssembly(node, &assembly);
+    // std::string assembly;
+    // parser.GenerateAssembly(node, &assembly);
 
-    std::cout << assembly << std::endl;
+    // std::cout << assembly << std::endl;
     return 0;
 }
 
