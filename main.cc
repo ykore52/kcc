@@ -40,8 +40,6 @@ int Compile(const std::string &module_name, std::vector<char> &buffer)
     //     std::cout << static_cast<const void*>(&std::end(compiler_state->buf)) << ":" << *i << ":" << std::endl;
     // }
 
-    std::cout << "fuga" << std::endl;
-
     Parser parser(compiler_state);
     auto prog = parser.SyntaxCheck();
     PDEBUG("================= Code Generation ========================");

@@ -50,10 +50,13 @@ enum AssemblySyntaxMode
 
 struct AssemblyOption
 {
+    AssemblyOption() : mode(kIntel) {}
+
     AssemblySyntaxMode mode;
 };
 
-static std::string FillSpace(int n)
+
+inline static std::string FillSpace(int n)
 {
     std::string sp = "";
     for (int i = 0; i < n; i++)
@@ -63,24 +66,21 @@ static std::string FillSpace(int n)
     return sp;
 }
 
-static std::string AsmStr0(std::string instruction,
-                            AsmMode mode = kIntel)
+inline static std::string AsmStr0(std::string instruction,
+                           AssemblySyntaxMode mode = kIntel)
 {
-    if (mode == kIntel)
+    switch (mode)
     {
-        std::string r = ASMSP + instruction + ASMLF;
-        return r;
-    }
-    else if (mode == kATT)
-    {
-        std::string r = ASMSP + instruction + ASMLF;
-        return r;
+    case kIntel:
+        return ASMSP + instruction + ASMLF;
+    case kATT:
+        return ASMSP + instruction + ASMLF;
     }
 }
 
-static std::string AsmStr1(std::string instruction,
-                            std::string src,
-                            AsmMode mode = kIntel)
+inline static std::string AsmStr1(std::string instruction,
+                           std::string src,
+                           AssemblySyntaxMode mode = kIntel)
 {
     if (mode == kIntel)
     {
@@ -94,10 +94,10 @@ static std::string AsmStr1(std::string instruction,
     }
 }
 
-static std::string AsmStr2(std::string instruction,
-                            std::string dest,
-                            std::string src,
-                            AsmMode mode = kIntel)
+inline static std::string AsmStr2(std::string instruction,
+                           std::string dest,
+                           std::string src,
+                           AssemblySyntaxMode mode = kIntel)
 {
     if (mode == kIntel)
     {
@@ -109,6 +109,11 @@ static std::string AsmStr2(std::string instruction,
         std::string r = ASMSP + instruction + FillSpace(8 - instruction.length()) + src + "," + dest + ASMLF;
         return r;
     }
+}
+
+inline static std::string AsmLabel(std::string label)
+{
+    return label + ASMLF;
 }
 
 struct CompileErrorInfo
@@ -191,9 +196,9 @@ struct PrimaryExpression : public ExpressionBase
         : ExpressionBase(kPrimaryExpression), literal(literal) {}
     virtual std::string Code(AssemblyOption const &opt)
     {
-        std::string _asm = "";
-        _asm += ASMSP + "movl    %rax," + literal->Code() + ASMLF;
-        return _asm;
+        std::string asm_ = "";
+        asm_ += ASMSP + "movl    %rax," + literal->Code(opt) + ASMLF;
+        return asm_;
     }
     virtual void Stdout() {}
 
@@ -216,9 +221,9 @@ struct ReturnStatement : public StatementBase
 
     virtual std::string Code(AssemblyOption const &opt) override
     {
-        std::string _asm = "";
-        _asm += return_expression->Code();
-        return _asm;
+        std::string asm_ = "";
+        asm_ += return_expression->Code(opt);
+        return asm_;
     }
     virtual void Stdout() {}
 
@@ -272,14 +277,14 @@ struct Function : public DeclarationBase
 
     std::string Code(AssemblyOption const &opt)
     {
-        std::string result = "";
+        std::string result;
         result += function_name + ":" + ASMLF;
         result += ASMSP + "pushl   %rbp" + ASMLF;
         result += ASMSP + "movl    %rbp,%rsp" + ASMLF;
 
         for (auto s : statements)
         {
-            result += s->Code();
+            result += s->Code(opt);
         }
 
         result += ASMSP + "movl    %rsp,%rbp" + ASMLF;
@@ -311,12 +316,14 @@ struct Program : public ASTNode
 
     std::string Code(AssemblyOption const &opt)
     {
-        std::string result = "";
-        result += "# ----------------------------" + ASMLF;
-        result += "# Generated assembly code" + ASMLF;
+        std::string result;
+        if (opt.mode == kIntel) {
+            result += AsmLabel(".intel_syntax noprefix");
+        }
+
         for (auto d : decl)
         {
-            result += d->Code();
+            result += d->Code(opt);
         }
         return result;
     }
@@ -362,6 +369,9 @@ struct CompilerState
 
     // error information
     std::vector<CompileErrorInfo> errors;
+
+    // assembly options
+    AssemblyOption asm_option;
 };
 
 struct Node

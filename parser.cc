@@ -30,8 +30,7 @@ std::shared_ptr<Program> Parser::SyntaxCheck()
 
 int Parser::GenerateAssembly(std::shared_ptr<Program> &node, std::string *assembly)
 {
-    PDEBUG("hoge");
-    *assembly = node->Code();
+    *assembly = node->Code(compiler_state->asm_option);
     return 0;
 }
 
