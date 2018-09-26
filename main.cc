@@ -45,7 +45,7 @@ int Compile(const std::string &module_name, std::vector<char> &buffer)
     Parser parser(compiler_state);
     auto prog = parser.SyntaxCheck();
     PDEBUG("================= Code Generation ========================");
-    prog->Stdout();
+    //prog->Stdout();
 
     std::string assembly;
     parser.GenerateAssembly(prog, &assembly);

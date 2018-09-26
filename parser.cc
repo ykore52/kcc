@@ -30,6 +30,7 @@ std::shared_ptr<Program> Parser::SyntaxCheck()
 
 int Parser::GenerateAssembly(std::shared_ptr<Program> &node, std::string *assembly)
 {
+    PDEBUG("hoge");
     *assembly = node->Code();
     return 0;
 }
@@ -410,7 +411,7 @@ bool Parser::MakeArgumentDeclarationList(ArgumentList &arguments)
     {
         std::shared_ptr<Argument> arg;
         MakeArgumentDeclaration(arg);
-        arguments.push_back(*arg);
+        arguments.push_back(arg);
     }
 
     ++(compiler_state->iter);
@@ -501,7 +502,7 @@ bool Parser::MakeCompoundStatement(CompoundStatement &compound_statement)
 
             std::shared_ptr<ReturnStatement> return_statement;
             MakeReturnStatement(return_statement) && SkipSemicolon();
-            compound_statement.push_back(*return_statement);
+            compound_statement.push_back(return_statement);
 
             SkipLF();
 
