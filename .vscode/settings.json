@@ -64,5 +64,5 @@
         "sstream": "cpp"
     },
 
-    "files.eol": "\n"
+    "files.eol": "\r\n"
 }
