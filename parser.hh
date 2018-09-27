@@ -55,6 +55,30 @@ struct AssemblyOption
     AssemblySyntaxMode mode;
 };
 
+class Assembler
+{
+  public:
+    Assembler() {}
+
+    void Asm(std::string opcode, std::vector<std::string> &args)
+    {
+        code.reserve(code.length() + args.length() + 3);
+        code.push_back(ASMSP);
+        code.push_back(opcode);
+        std::copy(args.begin(), args.end(), std::back_inserter(code));
+        code.push_back(ASMLF);
+    }
+
+    std::string Str()
+    {
+        std::ostringstream os;
+        std::copy(code.begin(), code.end(), std::ostream_iterator<std::string>(os));
+        return os.str();
+    }
+
+  private:
+    std::vector<std::string> code;
+};
 
 inline static std::string FillSpace(int n)
 {
@@ -67,7 +91,7 @@ inline static std::string FillSpace(int n)
 }
 
 inline static std::string AsmStr0(std::string instruction,
-                           AssemblySyntaxMode mode = kIntel)
+                                  AssemblySyntaxMode mode = kIntel)
 {
     switch (mode)
     {
@@ -79,8 +103,8 @@ inline static std::string AsmStr0(std::string instruction,
 }
 
 inline static std::string AsmStr1(std::string instruction,
-                           std::string src,
-                           AssemblySyntaxMode mode = kIntel)
+                                  std::string src,
+                                  AssemblySyntaxMode mode = kIntel)
 {
     if (mode == kIntel)
     {
@@ -95,9 +119,9 @@ inline static std::string AsmStr1(std::string instruction,
 }
 
 inline static std::string AsmStr2(std::string instruction,
-                           std::string dest,
-                           std::string src,
-                           AssemblySyntaxMode mode = kIntel)
+                                  std::string dest,
+                                  std::string src,
+                                  AssemblySyntaxMode mode = kIntel)
 {
     if (mode == kIntel)
     {
@@ -115,6 +139,12 @@ inline static std::string AsmLabel(std::string label)
 {
     return label + ASMLF;
 }
+
+struct Instruction
+{
+    InstructionId instruction;
+    std::shared_ptr<Instruction> destination;
+};
 
 struct CompileErrorInfo
 {
@@ -317,7 +347,8 @@ struct Program : public ASTNode
     std::string Code(AssemblyOption const &opt)
     {
         std::string result;
-        if (opt.mode == kIntel) {
+        if (opt.mode == kIntel)
+        {
             result += AsmLabel(".intel_syntax noprefix");
         }
 
