@@ -8,11 +8,6 @@
                 "D:/msys64/mingw64/x86_64-w64-mingw32/include",
                 "${workspaceFolder}"
             ],
-            "forcedInclude": [
-                "D:/msys64/mingw64/include/c++/7.3.0/",
-                "D:/msys64/mingw64/lib/clang/5.0.1/include/*",
-                "D:/msys64/mingw64/x86_64-w64-mingw32/include/*"
-            ],
             "defines": [
                 "_DEBUG",
                 "UNICODE",

@@ -8,7 +8,7 @@
 namespace kcc
 {
 
-enum InstructionId
+enum Mnemonic
 {
     MOV,
     PUSH,
@@ -52,13 +52,13 @@ enum RegisterX64
     kBP,
     kSI,
     kDI,
-    kSP
+    kSP,
 
     // segment registers
     kCS, kDS, kSS, kES, kFS, kGS
 };
 
-static std::map<RegisterX64, std::string> reg_string = {
+const static std::map<RegisterX64, std::string> reg_string = {
     {kRAX, "rax"},
     {kRBX, "rbx"},
     {kRCX, "rcx"},
@@ -76,7 +76,7 @@ static std::map<RegisterX64, std::string> reg_string = {
     {kR14, "r14"},
     {kR15, "r15"}};
 
-static std::map<RegisterX64, bool> reg_use_map = {
+const static std::map<RegisterX64, bool> reg_use_map = {
     {kRAX, false},
     {kRBX, false},
     {kRCX, false},
@@ -94,7 +94,7 @@ static std::map<RegisterX64, bool> reg_use_map = {
     {kR14, false},
     {kR15, false}};
 
-static std::map<RegisterX64, long long> regs = {
+static std::map<RegisterX64, uint64_t> regs = {
     {kRAX, 0},
     {kRBX, 0},
     {kRCX, 0},
@@ -118,6 +118,12 @@ static inline uint32_t EAX() { return static_cast<uint32_t>(regs[kRAX] & 0xfffff
 static inline uint16_t AX() { return static_cast<uint16_t>(regs[kRAX] & 0xffff); }
 static inline uint8_t AH() { return static_cast<uint8_t>((regs[kRAX] & 0xff00) >> 8); }
 static inline uint8_t AL() { return static_cast<uint8_t>(regs[kRAX] & 0xff); }
+
+static inline uint64_t RBX() { return static_cast<uint64_t>(regs[kRBX]); }
+static inline uint32_t EBX() { return static_cast<uint32_t>(regs[kRBX] & 0xffffffff); }
+static inline uint16_t BX() { return static_cast<uint16_t>(regs[kRBX] & 0xffff); }
+static inline uint8_t BH() { return static_cast<uint8_t>((regs[kRBX] & 0xff00) >> 8); }
+static inline uint8_t BL() { return static_cast<uint8_t>(regs[kRBX] & 0xff); }
 
 } // namespace kcc
 

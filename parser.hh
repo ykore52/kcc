@@ -10,12 +10,10 @@
 #include <vector>
 
 #include "util.hh"
+#include "assembler.hh"
 
 namespace kcc
 {
-
-static std::string ASMSP = "    ";
-static std::string ASMLF = "\n";
 
 enum NodeType
 {
@@ -38,114 +36,28 @@ enum NodeType
     kPrimaryExpression
 };
 
-// You can change assembly syntax.
-enum AssemblySyntaxMode
-{
-    // Intel syntax mode
-    kIntel,
-
-    // AT&T syntax mode
-    kATT
-};
-
-struct AssemblyOption
-{
-    AssemblyOption() : mode(kIntel) {}
-
-    AssemblySyntaxMode mode;
-};
-
-class Assembler
-{
-  public:
-    Assembler() {}
-
-    void Asm(std::string opcode, std::vector<std::string> &args)
-    {
-        code.reserve(code.length() + args.length() + 3);
-        code.push_back(ASMSP);
-        code.push_back(opcode);
-        std::copy(args.begin(), args.end(), std::back_inserter(code));
-        code.push_back(ASMLF);
-    }
-
-    std::string Str()
-    {
-        std::ostringstream os;
-        std::copy(code.begin(), code.end(), std::ostream_iterator<std::string>(os));
-        return os.str();
-    }
-
-  private:
-    std::vector<std::string> code;
-};
-
-inline static std::string FillSpace(int n)
-{
-    std::string sp = "";
-    for (int i = 0; i < n; i++)
-    {
-        sp += " ";
-    }
-    return sp;
-}
-
-inline static std::string AsmStr0(std::string instruction,
-                                  AssemblySyntaxMode mode = kIntel)
-{
-    switch (mode)
-    {
-    case kIntel:
-        return ASMSP + instruction + ASMLF;
-    case kATT:
-        return ASMSP + instruction + ASMLF;
-    }
-}
-
-inline static std::string AsmStr1(std::string instruction,
-                                  std::string src,
-                                  AssemblySyntaxMode mode = kIntel)
-{
-    if (mode == kIntel)
-    {
-        std::string r = ASMSP + instruction + FillSpace(8 - instruction.length()) + src + ASMLF;
-        return r;
-    }
-    else if (mode == kATT)
-    {
-        std::string r = ASMSP + instruction + FillSpace(8 - instruction.length()) + src + ASMLF;
-        return r;
-    }
-}
-
-inline static std::string AsmStr2(std::string instruction,
-                                  std::string dest,
-                                  std::string src,
-                                  AssemblySyntaxMode mode = kIntel)
-{
-    if (mode == kIntel)
-    {
-        std::string r = ASMSP + instruction + FillSpace(8 - instruction.length()) + dest + "," + src + ASMLF;
-        return r;
-    }
-    else if (mode == kATT)
-    {
-        std::string r = ASMSP + instruction + FillSpace(8 - instruction.length()) + src + "," + dest + ASMLF;
-        return r;
-    }
-}
-
-inline static std::string AsmLabel(std::string label)
-{
-    return label + ASMLF;
-}
-
+// 記述言語をアセンブリ言語に変換するための中間オブジェクト
+// ジャンプ先を記憶するために利用
 struct Instruction
 {
-    InstructionId instruction;
+    Instruction() {}
+    Instruction(const Mnemonic mnemonic) : mnemonic(mnemonic) {}
+    Instruction(const Mnemonic &mnemonic, const std::shared_ptr<Instruction> &jump_dest, const std::string &line)
+        : mnemonic(mnemonic), destination(jump_dest), line(line) {}
+
+    void operator=(const Instruction &src)
+    {
+        mnemonic = src.mnemonic;
+        destination = src.destination;
+        line = src.line;
+    }
+
+    Mnemonic mnemonic;
     std::shared_ptr<Instruction> destination;
+    std::string line;
 };
 
+// コンパイルエラー情報
 struct CompileErrorInfo
 {
     std::string module_name;
@@ -153,6 +65,7 @@ struct CompileErrorInfo
     std::string message;
 };
 
+// 型情報
 struct TypeInfo
 {
     std::string type_name;
@@ -160,18 +73,20 @@ struct TypeInfo
     std::map<std::string, std::shared_ptr<TypeInfo>> member;
 };
 
+// 識別子情報
 struct IdentifierInfo
 {
     std::string id;
     std::string module_name;
 };
 
+// AST のノードとなるベースクラス
 struct ASTNode
 {
     ASTNode() {}
     ASTNode(const NodeType t) : node_type(t) {}
     virtual ~ASTNode() {}
-    virtual std::string Code(AssemblyOption const &opt) { return "dummy"; }
+    virtual std::string Assemble(AssemblyConfig &conf) { return "dummy"; }
     virtual void Stdout() { std::cout << "ASTNode" << std::endl; }
 
     NodeType node_type;
@@ -181,7 +96,7 @@ struct ASTNode
 struct LiteralBase : public ASTNode
 {
     LiteralBase(NodeType t, std::string value) : ASTNode(t), value(value) {}
-    virtual std::string Code(AssemblyOption const &opt) { return "LiteralBase"; }
+    virtual std::string Assemble(AssemblyConfig &conf) { return "LiteralBase"; }
     virtual void Stdout() {}
     std::string value;
 };
@@ -189,21 +104,14 @@ struct LiteralBase : public ASTNode
 struct IntegerLiteral : public LiteralBase
 {
     IntegerLiteral(std::string value) : LiteralBase(kIntegerLiteral, value) {}
-    virtual std::string Code(AssemblyOption const &opt)
-    {
-        std::stringstream ss;
-        ss << "$" << std::hex << std::stoi(value);
-        std::string ret;
-        ss >> ret;
-        return ret;
-    }
+    virtual std::string Assemble(AssemblyConfig &conf) { return value; }
     virtual void Stdout() {}
 };
 
 struct StringLiteral : public LiteralBase
 {
     StringLiteral(std::string value) : LiteralBase(kStringLiteral, value) {}
-    virtual std::string Code(AssemblyOption const &opt) { return "StringLiteral"; }
+    virtual std::string Assemble(AssemblyConfig &conf) { return "\"" + value + "\""; }
     virtual void Stdout() {}
 };
 
@@ -211,7 +119,7 @@ struct StringLiteral : public LiteralBase
 struct ExpressionBase : public ASTNode
 {
     ExpressionBase(NodeType t) : ASTNode(t) {}
-    virtual std::string Code(AssemblyOption const &opt) { return "ExpressionBase"; }
+    virtual std::string Assemble(AssemblyConfig &conf) { return "ExpressionBase"; }
     virtual void Stdout() {}
     // child expression
     std::shared_ptr<ExpressionBase> expression;
@@ -224,11 +132,9 @@ struct PrimaryExpression : public ExpressionBase
     PrimaryExpression() : ExpressionBase(kPrimaryExpression) {}
     PrimaryExpression(std::shared_ptr<LiteralBase> &literal)
         : ExpressionBase(kPrimaryExpression), literal(literal) {}
-    virtual std::string Code(AssemblyOption const &opt)
+    virtual std::string Assemble(AssemblyConfig &conf)
     {
-        std::string asm_ = "";
-        asm_ += ASMSP + "movl    %rax," + literal->Code(opt) + ASMLF;
-        return asm_;
+        return conf.asm_.Asm("mov", {"rax", literal->value});
     }
     virtual void Stdout() {}
 
@@ -239,7 +145,7 @@ struct PrimaryExpression : public ExpressionBase
 struct StatementBase : public ASTNode
 {
     StatementBase(NodeType t) : ASTNode(t) {}
-    virtual std::string Code(AssemblyOption const &opt) { return "StatementBase"; }
+    virtual std::string Assemble(AssemblyConfig &conf) { return "StatementBase"; }
     virtual void Stdout() {}
 };
 
@@ -249,13 +155,13 @@ struct ReturnStatement : public StatementBase
     ReturnStatement(const std::shared_ptr<ExpressionBase> &e)
         : StatementBase(kStatementReturn), return_expression(e) {}
 
-    virtual std::string Code(AssemblyOption const &opt) override
+    virtual std::string Assemble(AssemblyConfig &conf) override
     {
-        std::string asm_ = "";
-        asm_ += return_expression->Code(opt);
-        return asm_;
+        std::string code = "";
+        code += return_expression->Assemble(conf);
+        return code;
     }
-    virtual void Stdout() {}
+    virtual void Stdout() override {}
 
     std::shared_ptr<ExpressionBase> return_expression;
 };
@@ -275,7 +181,7 @@ struct WhileStatement : public StatementBase
 struct Argument : public ASTNode
 {
     Argument() : ASTNode(kFuncParamList) {}
-    virtual std::string Code(AssemblyOption const &opt) { return "Argument"; }
+    virtual std::string Assemble(AssemblyConfig &conf) { return "Argument"; }
     virtual void Stdout() {}
     std::shared_ptr<TypeInfo> var_type;
     IdentifierInfo var;
@@ -287,14 +193,14 @@ typedef std::vector<std::shared_ptr<StatementBase>> CompoundStatement;
 struct DeclarationBase : public ASTNode
 {
     DeclarationBase(NodeType t) : ASTNode(t) {}
-    virtual std::string Code(AssemblyOption const &opt) { return "DeclarationBase"; }
+    virtual std::string Assemble(AssemblyConfig &conf) { return "DeclarationBase"; }
     virtual void Stdout() {}
 };
 
 struct Declaration : public DeclarationBase
 {
     Declaration() : DeclarationBase(kDeclaration) {}
-    virtual std::string Code(AssemblyOption const &opt) { return "Declaration"; }
+    virtual std::string Assemble(AssemblyConfig &conf) { return "Declaration"; }
 };
 
 struct Function : public DeclarationBase
@@ -305,22 +211,25 @@ struct Function : public DeclarationBase
     ArgumentList arguments;
     CompoundStatement statements;
 
-    std::string Code(AssemblyOption const &opt)
+    std::string Assemble(AssemblyConfig &conf) override
     {
-        std::string result;
-        result += function_name + ":" + ASMLF;
-        result += ASMSP + "pushl   %rbp" + ASMLF;
-        result += ASMSP + "movl    %rbp,%rsp" + ASMLF;
+        std::string code = "";
+        if (function_name.compare("main") == 0) {
+            code += conf.asm_.Directive("globl _main");
+            code += conf.asm_.Label("_main");
+        }
+        code += conf.asm_.Asm("push", {"rbp"});
+        code += conf.asm_.Asm("mov", {"rbp", "rsp"});
 
         for (auto s : statements)
         {
-            result += s->Code(opt);
+            code += s->Assemble(conf);
         }
 
-        result += ASMSP + "movl    %rsp,%rbp" + ASMLF;
-        result += ASMSP + "popl    %rbp" + ASMLF;
-        result += ASMSP + "ret" + ASMLF;
-        return result;
+        code += conf.asm_.Asm("mov", {"rsp", "rbp"});
+        code += conf.asm_.Asm("pop", {"rbp"});
+        code += conf.asm_.Asm("ret");
+        return code;
     }
 
     void Stdout() override
@@ -344,19 +253,19 @@ struct Program : public ASTNode
     Program() : ASTNode(kProgram) {}
     std::vector<std::shared_ptr<DeclarationBase>> decl;
 
-    std::string Code(AssemblyOption const &opt)
+    std::string Assemble(AssemblyConfig &conf) override
     {
-        std::string result;
-        if (opt.mode == kIntel)
+        std::string code;
+        if (conf.mode == kIntel)
         {
-            result += AsmLabel(".intel_syntax noprefix");
+            code += conf.asm_.Directive("intel_syntax noprefix");
         }
 
         for (auto d : decl)
         {
-            result += d->Code(opt);
+            code += d->Assemble(conf);
         }
-        return result;
+        return code;
     }
 
     void Stdout() override
@@ -401,8 +310,8 @@ struct CompilerState
     // error information
     std::vector<CompileErrorInfo> errors;
 
-    // assembly options
-    AssemblyOption asm_option;
+    // assembly config
+    AssemblyConfig asm_config;
 };
 
 struct Node
@@ -432,17 +341,6 @@ class Parser
 
     bool SkipSemicolon();
     void SkipLF();
-
-    // bool TypeDefinition(const std::shared_ptr<Node> &node,
-    // std::shared_ptr<TypeInfo>); bool ArgumentDeclaration(const
-    // std::shared_ptr<Node> &node); bool ArgumentDeclarationList(const
-    // std::shared_ptr<Node> &node); bool FunctionIdentifier(const
-    // std::shared_ptr<Node> &node); bool ReturnStatement(const
-    // std::shared_ptr<Node> &node); bool CompoundStatement(const
-    // std::shared_ptr<Node> &node); bool FunctionDefinition(const
-    // std::shared_ptr<Node> &node); bool Expression(const std::shared_ptr<Node>
-    // &node); bool IntegerLiteral(const std::shared_ptr<Node> &node); bool
-    // StringLiteral(const std::shared_ptr<Node> &node);
 
     bool MakeTypeDefinition(std::shared_ptr<TypeInfo> &type);
     bool MakeArgumentDeclaration(std::shared_ptr<Argument> &argument);
