@@ -28,7 +28,7 @@ function unittest() {
     fi
     rm ${tmpfile}
 
-    ${BINKCC} return2.c || echo "FAIL"
+    ${BINKCC} test/return2.c || echo "FAIL"
 
     # tmpfile=`mktemp`
     # { \

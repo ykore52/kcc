@@ -12,11 +12,12 @@ namespace kcc
 struct CmdOptions
 {
     std::string module_name;
+    std::string assembly_filename;
 };
 
 // Compile
 // Compiling a source codesource codes.
-int Compile(const std::string &module_name, std::vector<char> &buffer)
+int Compile(std::string &assembly, const std::string &module_name, std::vector<char> &buffer)
 {
     //  std::cout << "--- Compile start ---" << std::endl;
 
@@ -46,10 +47,7 @@ int Compile(const std::string &module_name, std::vector<char> &buffer)
     PDEBUG("================= Code Generation ========================");
     //prog->Stdout();
 
-    std::string assembly;
     parser.GenerateAssembly(prog, &assembly);
-
-    std::cout << assembly << std::endl;
     return 0;
 }
 
@@ -63,7 +61,27 @@ std::unique_ptr<CmdOptions> ReadOptions(int argc, char **argv)
 
     std::unique_ptr<CmdOptions> opts(new CmdOptions);
 
-    opts->module_name = std::string(argv[1]);
+    std::vector<std::string> opts_array;
+    for (int i = 0; i < argc; i++) {
+        opts_array.push_back(argv[i]);
+    }
+
+    for (auto o = opts_array.begin(); o != opts_array.end(); ++o) {
+        if (o->compare("-S") == 0) {
+            ++o;
+            if (o == opts_array.end()) {
+                throw std::invalid_argument("No specific assembly(*.S) file");
+            }
+            opts->assembly_filename = std::string(*o);
+            continue;
+        }
+
+        if (o->compare("-o") == 0) {
+            continue;
+        }
+
+        opts->module_name = std::string(argv[1]);
+    }
 
     return opts;
 }
@@ -93,7 +111,7 @@ int main(int argc, char **argv)
         std::vector<char> buf(size);
         fin.read(&buf[0], size);
 
-        PrintCharVector(buf);
+        //PrintCharVector(buf);
 
         // Compiling a source code
         kcc::Compile(opts->module_name, buf);
