@@ -36,11 +36,11 @@ int Parser::GenerateAssembly(std::shared_ptr<Program> &node, std::string *assemb
 
 void Parser::Init()
 {
-    compiler_state->type_store["char"] = {"char", false};
-    compiler_state->type_store["int"] = {"int", false};
-    compiler_state->type_store["long"] = {"long", false};
-    compiler_state->type_store["float"] = {"float", false};
-    compiler_state->type_store["double"] = {"double", false};
+    compiler_state->type_store["char"] = {"char", false, 1};
+    compiler_state->type_store["int"] = {"int", false, 8};
+    compiler_state->type_store["long"] = {"long", false, 8};
+    compiler_state->type_store["float"] = {"float", false, 8};
+    compiler_state->type_store["double"] = {"double", false, 16};
 }
 
 bool Parser::IsEqual(const std::vector<std::string>::iterator &it, char c)
@@ -48,9 +48,45 @@ bool Parser::IsEqual(const std::vector<std::string>::iterator &it, char c)
     return (*it->c_str() == c) && (it->length() == 1);
 }
 
+NodeType Parser::Which(std::vector<std::string>::iterator &it)
+{
+    if ((*it)[0] == '0' ||
+        (*it)[0] == '1' ||
+        (*it)[0] == '2' ||
+        (*it)[0] == '3' ||
+        (*it)[0] == '4' ||
+        (*it)[0] == '5' ||
+        (*it)[0] == '6' ||
+        (*it)[0] == '7' ||
+        (*it)[0] == '8' ||
+        (*it)[0] == '9')
+    {
+        bool is_num = true;
+        for (auto c : *it)
+        {
+            if (c != '0' &&
+                c != '1' &&
+                c != '2' &&
+                c != '3' &&
+                c != '4' &&
+                c != '5' &&
+                c != '6' &&
+                c != '7' &&
+                c != '8' &&
+                c != '9')
+            {
+                is_num = false;
+            }
+        }
+        if (is_num) {
+            return kIntegerLiteral;
+        }
+    }
+}
+
 bool Parser::IsDefinedType(const std::string &str)
 {
-    return compiler_state->type_store[str] != compiler_state->type_store.end();
+    return compiler_state->type_store.find(str) != compiler_state->type_store.end();
 }
 
 bool Parser::SkipSemicolon()
@@ -83,13 +119,13 @@ void Parser::SkipLF()
 }
 
 // -------------------------------------------------------------------------------
-
+// 型定義
 bool Parser::MakeTypeDefinition(std::shared_ptr<TypeInfo> &type)
 {
     PDEBUG(__FUNCTION__);
-    auto typeName = *(compiler_state->iter);
+    auto type_name = *(compiler_state->iter);
     compiler_state->iter++;
-    if (compiler_state->type_store.find(typeName) == std::end(compiler_state->type_store))
+    if (compiler_state->type_store.find(type_name) == std::end(compiler_state->type_store))
     {
         compiler_state->errors.push_back({compiler_state->module_name, compiler_state->line_number, "Type name is not defined"});
         return false;
@@ -97,10 +133,11 @@ bool Parser::MakeTypeDefinition(std::shared_ptr<TypeInfo> &type)
 
     SkipLF();
 
-    type = std::shared_ptr<TypeInfo>(new TypeInfo{typeName, false, std::map<std::string, std::shared_ptr<TypeInfo>>()});
+    type = std::make_shared<TypeInfo>(compiler_state->type_store[type_name]);
     return true;
 }
 
+// 引数の宣言
 bool Parser::MakeArgumentDeclaration(std::shared_ptr<Argument> &argument)
 {
     PDEBUG(__FUNCTION__);
@@ -109,6 +146,7 @@ bool Parser::MakeArgumentDeclaration(std::shared_ptr<Argument> &argument)
     return true;
 }
 
+// 引数宣言のリスト
 bool Parser::MakeArgumentDeclarationList(ArgumentList &arguments)
 {
     PDEBUG(__FUNCTION__);
@@ -135,11 +173,10 @@ bool Parser::MakeArgumentDeclarationList(ArgumentList &arguments)
     return true;
 }
 
+// 関数宣言
 bool Parser::MakeFunctionIdentifier(std::string &function_identifier)
 {
     PDEBUG(__FUNCTION__);
-
-    compiler_state->scope += 
 
     auto identifier = *(compiler_state->iter);
 
@@ -155,6 +192,7 @@ bool Parser::MakeFunctionIdentifier(std::string &function_identifier)
     SkipLF();
 
     function_identifier = identifier;
+    compiler_state->scope += identifier;
 
     PDEBUG(universal_name);
     compiler_state->identifier_store[universal_name] = IdentifierInfo{identifier, compiler_state->module_name};
@@ -163,6 +201,7 @@ bool Parser::MakeFunctionIdentifier(std::string &function_identifier)
     return true;
 }
 
+// 変数名(識別名)
 bool Parser::MakeVariableIdentifier(const std::string &scope, std::string &var_name)
 {
     PDEBUG(__FUNCTION__);
@@ -189,18 +228,44 @@ bool Parser::MakeVariableIdentifier(const std::string &scope, std::string &var_n
     return true;
 }
 
+// 変数 (+初期化)
 bool Parser::MakeInitDeclarator(std::string &var_name, std::shared_ptr<AssignmentExpression> &assign_expr)
 {
     std::string scope = compiler_state->scope;
     bool result = MakeVariableIdentifier(scope, var_name);
-    if (!result) {
-        compiler_state->errors.push_back({scope + "::" + compiler_state->module_name, compiler_state->line_number, "Identifier : " + identifier + " is already defined"});
+    if (!result)
+    {
+        compiler_state->errors.push_back(
+            {scope + "::" + compiler_state->module_name,
+             compiler_state->line_number,
+             "Identifier : " + var_name + " is already defined"});
     }
     SkipLF();
-    
+
+    if (*(compiler_state->iter) == ";")
+    {
+        return true;
+    }
+
+    if (*(compiler_state->iter) != "=")
+    {
+        compiler_state->errors.push_back(
+            {scope + "::" + compiler_state->module_name,
+             compiler_state->line_number,
+             "Unexpected token :" + *(compiler_state->iter)});
+    }
+
+    SkipLF(); // skip "=" token
+    SkipLF();
+
+    if (*(compiler_state->iter) != "=")
+    {
+    }
+    assign_expr = std::shared_ptr<AssignmentExpression>(new AssignmentExpression());
 }
 
-bool Parser::MakeVariableDeclaration(std::shared_ptr<VariableDeclaration> &var_decl)
+// ローカル変数宣言
+bool Parser::MakeVariableDeclaration(std::vector<std::shared_ptr<VariableDeclaration>> &variables)
 {
     /*
         patterns:
@@ -211,21 +276,52 @@ bool Parser::MakeVariableDeclaration(std::shared_ptr<VariableDeclaration> &var_d
             int g = 0, h = 0;
     */
 
-    
+    auto var_decl = std::shared_ptr<VariableDeclaration>(new VariableDeclaration(compiler_state->stack_rel_addr));
+
+    auto assign_expr = std::shared_ptr<AssignmentExpression>(new AssignmentExpression());
     bool result = MakeTypeDefinition(var_decl->type) &&
-                  MakeInitDeclarator(var_decl->variable_name);
+                  MakeInitDeclarator(var_decl->variable_name, assign_expr);
+
+    // 次の変数のためにスタック相対アドレスを移動しておく
+    compiler_state->stack_rel_addr += var_decl->type->size;
+
     SkipLF();
-    if(*compiler_state->iter.compare(",")) {
-        std::shared_ptr<VariableDeclaration> var(new VariableDeclaration());
-        var->type = var_decl->type;
-        bool result2 = MakeInitDeclarator(var);
+
+    if (result)
+    {
+        variables.push_back(var_decl);
     }
-    
-    variable = std::shared_ptr<VariableDeclaration> variable(new VariableDeclaration());
-    return true;
+
+    while (*(compiler_state->iter) != ";")
+    {
+
+        // カンマ区切りで別の変数が宣言された場合の処理
+        if (*(compiler_state->iter) == ",")
+        {
+            SkipLF();
+
+            std::shared_ptr<VariableDeclaration> var_decl2(new VariableDeclaration(compiler_state->stack_rel_addr));
+            var_decl2->type = var_decl->type;
+
+            bool result2 = MakeInitDeclarator(var_decl2->variable_name, assign_expr);
+            if (!result2)
+            {
+                return false;
+            }
+
+            variables.push_back(var_decl);
+            // 次の変数のためにスタック相対アドレスを移動しておく
+            compiler_state->stack_rel_addr += var_decl2->type->size;
+        }
+        else
+        {
+            break; // 多分 false
+        }
+    }
+    return result;
 }
 
-
+// return ステートメント
 bool Parser::MakeReturnStatement(std::shared_ptr<ReturnStatement> &return_statement)
 {
     PDEBUG(__FUNCTION__);
@@ -280,15 +376,17 @@ bool Parser::MakeCompoundStatement(CompoundStatement &compound_statement)
                 break;
             }
 
-            if (IsDefinedType(*compiler_state->iter)) {
-
+            if (IsDefinedType(*compiler_state->iter))
+            {
                 // local variable definition
-                std::shared_ptr<VariableDeclaration> variable_decl;
-                MakeVariableDeclaration(variable_decl) && SkipSemicolon();
-                compound_statement.push_back(variable_decl);
+                std::vector<std::shared_ptr<VariableDeclaration>> variables;
+                MakeVariableDeclaration(variables) && SkipSemicolon();
+                for (auto v : variables)
+                    compound_statement.push_back(v);
                 SkipLF();
-
-            } else {
+            }
+            else
+            {
                 std::shared_ptr<ReturnStatement> return_statement;
                 MakeReturnStatement(return_statement) && SkipSemicolon();
                 compound_statement.push_back(return_statement);
@@ -323,7 +421,7 @@ bool Parser::MakeFunctionDefinition(std::shared_ptr<Function> &function)
                   MakeArgumentDeclarationList(function->arguments);
 
     compiler_state->scope += function->function_name;
-    result &&= MakeCompoundStatement(function->statements);
+    result &= MakeCompoundStatement(function->statements);
 
     PDEBUG("out -> " + std::string(__FUNCTION__));
 
@@ -348,8 +446,7 @@ bool Parser::MakeExpression(std::shared_ptr<PrimaryExpression> &primary_expressi
         {
             auto temp = std::dynamic_pointer_cast<LiteralBase>(string_literal);
             primary_expression = std::shared_ptr<PrimaryExpression>(
-                new PrimaryExpression(temp)
-            );
+                new PrimaryExpression(temp));
             PDEBUG("out -> " + std::string(__FUNCTION__));
             return true;
         }
@@ -377,7 +474,7 @@ bool Parser::MakeExpression(std::shared_ptr<PrimaryExpression> &primary_expressi
             std::shared_ptr<IntegerLiteral> integer_literal;
             bool result = MakeIntegerLiteral(integer_literal);
             if (result)
-            {               
+            {
                 auto temp = std::dynamic_pointer_cast<LiteralBase>(integer_literal);
                 primary_expression = std::shared_ptr<PrimaryExpression>(new PrimaryExpression(temp));
                 PDEBUG("out -> " + std::string(__FUNCTION__));
@@ -451,11 +548,12 @@ bool Parser::MakeProgram(std::shared_ptr<Program> &program)
     std::shared_ptr<Function> function;
 
     bool result = MakeFunctionDefinition(function);
-    if (result) {
+    if (result)
+    {
         program->decl.push_back(function);
         return true;
     }
-    
+
     return false;
 }
 

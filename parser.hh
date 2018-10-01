@@ -73,6 +73,7 @@ struct TypeInfo
 {
     std::string type_name;
     bool is_pointer;
+    int size; // バイト数
     std::map<std::string, std::shared_ptr<TypeInfo>> member;
 };
 
@@ -140,7 +141,9 @@ struct AssignmentExpression : public ExpressionBase
     }
 
     virtual void Stdout() {}
-}
+
+    std::shared_ptr<ExpressionBase> expression;
+};
 
 // 一次式
 struct PrimaryExpression : public ExpressionBase
@@ -168,17 +171,19 @@ struct DeclarationAndStatement : public ASTNode
 struct VariableDeclaration : public DeclarationAndStatement
 {
     VariableDeclaration() : DeclarationAndStatement(kVariableDeclaration) {}
+    VariableDeclaration(int stack_rel_addr) : stack_rel_addr(stack_rel_addr), DeclarationAndStatement(kVariableDeclaration) {}
 
     std::shared_ptr<TypeInfo> type;
     std::string variable_name;
     // std::string storage_class;
     // std::string type_qualifier;
+    int stack_rel_addr = 0;
 
     std::string Assemble(AssemblyConfig &conf) override
     {
         std::string code = "";
     }
-}
+};
 
 struct ReturnStatement : public DeclarationAndStatement
 {
@@ -370,12 +375,14 @@ class Parser
 
     bool IsEqual(const std::vector<std::string>::iterator &it, char c);
     bool IsDefinedType(const std::string &str);
+    NodeType Which(std::vector<std::string>::iterator &it);
 
     bool SkipSemicolon();
     void SkipLF();
 
-    bool MakeVariableDeclaration(std::shared_ptr<VariableDeclaration> &var_decl);
-    bool MakeVariableIdentifier(std::string &var_name);
+    bool MakeVariableDeclaration(std::vector<std::shared_ptr<VariableDeclaration>> &variables);
+    bool MakeVariableIdentifier(const std::string &scope, std::string &var_name);
+    bool MakeInitDeclarator(std::string &var_name, std::shared_ptr<AssignmentExpression> &assign_expr);
 
     bool MakeTypeDefinition(std::shared_ptr<TypeInfo> &type);
     bool MakeArgumentDeclaration(std::shared_ptr<Argument> &argument);
