@@ -24,6 +24,8 @@ enum NodeType
     kIntegerLiteral,
     kStringLiteral,
 
+    kVariableDeclaration,
+
     kFuncDefinition,
     kFuncStorageClassSpecifier, // auto, register, static, extern, typedef,
                                 // __decpspec(ms-specific)
@@ -33,7 +35,8 @@ enum NodeType
     kFuncParam,
     kStatementReturn,
 
-    kPrimaryExpression
+    kPrimaryExpression,
+    kAssignmentExpression
 };
 
 // 記述言語をアセンブリ言語に変換するための中間オブジェクト
@@ -126,6 +129,19 @@ struct ExpressionBase : public ASTNode
     TypeInfo type_of_expr;
 };
 
+// 代入式(右辺値)
+struct AssignmentExpression : public ExpressionBase
+{
+    AssignmentExpression() : ExpressionBase(kAssignmentExpression) {}
+    
+    virtual std::string Assembly(AssemblyConfig &conf)
+    {
+        return "";
+    }
+
+    virtual void Stdout() {}
+}
+
 // 一次式
 struct PrimaryExpression : public ExpressionBase
 {
@@ -142,18 +158,33 @@ struct PrimaryExpression : public ExpressionBase
 };
 
 // ------------------------------------------------
-struct StatementBase : public ASTNode
+struct DeclarationAndStatement : public ASTNode
 {
-    StatementBase(NodeType t) : ASTNode(t) {}
-    virtual std::string Assemble(AssemblyConfig &conf) { return "StatementBase"; }
+    DeclarationAndStatement(NodeType t) : ASTNode(t) {}
+    virtual std::string Assemble(AssemblyConfig &conf) { return "DeclarationAndStatement"; }
     virtual void Stdout() {}
 };
 
-struct ReturnStatement : public StatementBase
+struct VariableDeclaration : public DeclarationAndStatement
 {
-    ReturnStatement() : StatementBase(kStatementReturn) {}
+    VariableDeclaration() : DeclarationAndStatement(kVariableDeclaration) {}
+
+    std::shared_ptr<TypeInfo> type;
+    std::string variable_name;
+    // std::string storage_class;
+    // std::string type_qualifier;
+
+    std::string Assemble(AssemblyConfig &conf) override
+    {
+        std::string code = "";
+    }
+}
+
+struct ReturnStatement : public DeclarationAndStatement
+{
+    ReturnStatement() : DeclarationAndStatement(kStatementReturn) {}
     ReturnStatement(const std::shared_ptr<ExpressionBase> &e)
-        : StatementBase(kStatementReturn), return_expression(e) {}
+        : DeclarationAndStatement(kStatementReturn), return_expression(e) {}
 
     virtual std::string Assemble(AssemblyConfig &conf) override
     {
@@ -166,13 +197,13 @@ struct ReturnStatement : public StatementBase
     std::shared_ptr<ExpressionBase> return_expression;
 };
 
-struct IfStatement : public StatementBase
+struct IfStatement : public DeclarationAndStatement
 {
 };
-struct ForStatement : public StatementBase
+struct ForStatement : public DeclarationAndStatement
 {
 };
-struct WhileStatement : public StatementBase
+struct WhileStatement : public DeclarationAndStatement
 {
 };
 
@@ -188,24 +219,18 @@ struct Argument : public ASTNode
 };
 
 typedef std::vector<std::shared_ptr<Argument>> ArgumentList;
-typedef std::vector<std::shared_ptr<StatementBase>> CompoundStatement;
+typedef std::vector<std::shared_ptr<DeclarationAndStatement>> CompoundStatement;
 
-struct DeclarationBase : public ASTNode
-{
-    DeclarationBase(NodeType t) : ASTNode(t) {}
-    virtual std::string Assemble(AssemblyConfig &conf) { return "DeclarationBase"; }
+// ExternalDeclaration contains Function decl and Global Variable decl;
+struct ExternalDeclaration : public ASTNode {
+    ExternalDeclaration(NodeType t) : ASTNode(t) {}
+    virtual std::string Assemble(AssemblyConfig &conf) { return "DeclaratExternalDeclarationionAndStatement"; }
     virtual void Stdout() {}
 };
 
-struct Declaration : public DeclarationBase
+struct Function : public ExternalDeclaration
 {
-    Declaration() : DeclarationBase(kDeclaration) {}
-    virtual std::string Assemble(AssemblyConfig &conf) { return "Declaration"; }
-};
-
-struct Function : public DeclarationBase
-{
-    Function() : DeclarationBase(kFuncDefinition) {}
+    Function() : ExternalDeclaration(kFuncDefinition) {}
     std::shared_ptr<TypeInfo> type;
     std::string function_name;
     ArgumentList arguments;
@@ -251,7 +276,7 @@ struct Function : public DeclarationBase
 struct Program : public ASTNode
 {
     Program() : ASTNode(kProgram) {}
-    std::vector<std::shared_ptr<DeclarationBase>> decl;
+    std::vector<std::shared_ptr<ExternalDeclaration>> decl;
 
     std::string Assemble(AssemblyConfig &conf) override
     {
@@ -310,8 +335,14 @@ struct CompilerState
     // error information
     std::vector<CompileErrorInfo> errors;
 
+    // current scope
+    std::string scope;
+
     // assembly config
     AssemblyConfig asm_config;
+
+    // relative address of base stack pointer
+    int stack_rel_addr = 0;
 };
 
 struct Node
@@ -338,20 +369,28 @@ class Parser
     void Init();
 
     bool IsEqual(const std::vector<std::string>::iterator &it, char c);
+    bool IsDefinedType(const std::string &str);
 
     bool SkipSemicolon();
     void SkipLF();
+
+    bool MakeVariableDeclaration(std::shared_ptr<VariableDeclaration> &var_decl);
+    bool MakeVariableIdentifier(std::string &var_name);
 
     bool MakeTypeDefinition(std::shared_ptr<TypeInfo> &type);
     bool MakeArgumentDeclaration(std::shared_ptr<Argument> &argument);
     bool MakeArgumentDeclarationList(ArgumentList &arguments);
     bool MakeFunctionIdentifier(std::string &function_identifier);
+
     bool MakeReturnStatement(std::shared_ptr<ReturnStatement> &return_statement);
     bool MakeCompoundStatement(CompoundStatement &compound_statement);
     bool MakeFunctionDefinition(std::shared_ptr<Function> &function);
+    
     bool MakeExpression(std::shared_ptr<PrimaryExpression> &primary_expression);
+
     bool MakeStringLiteral(std::shared_ptr<StringLiteral> &string_literal);
     bool MakeIntegerLiteral(std::shared_ptr<IntegerLiteral> &integer_literal);
+
     bool MakeProgram(std::shared_ptr<Program> &program);
 
     std::shared_ptr<CompilerState> compiler_state;

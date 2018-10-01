@@ -114,7 +114,15 @@ int main(int argc, char **argv)
         //PrintCharVector(buf);
 
         // Compiling a source code
-        kcc::Compile(opts->module_name, buf);
+        std::string assembly_code = "";
+        kcc::Compile(assembly_code, opts->module_name, buf);
+
+        // Output file
+        if (!opts->assembly_filename.empty())
+        {
+            std::ofstream fs_asm(opts->assembly_filename);
+            fs_asm << assembly_code.c_str();
+        }
     }
     catch (std::exception &e)
     {

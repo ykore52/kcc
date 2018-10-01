@@ -48,6 +48,11 @@ bool Parser::IsEqual(const std::vector<std::string>::iterator &it, char c)
     return (*it->c_str() == c) && (it->length() == 1);
 }
 
+bool Parser::IsDefinedType(const std::string &str)
+{
+    return compiler_state->type_store[str] != compiler_state->type_store.end();
+}
+
 bool Parser::SkipSemicolon()
 {
 
@@ -134,12 +139,14 @@ bool Parser::MakeFunctionIdentifier(std::string &function_identifier)
 {
     PDEBUG(__FUNCTION__);
 
+    compiler_state->scope += 
+
     auto identifier = *(compiler_state->iter);
 
-    auto universalName = compiler_state->module_name + "::" + identifier;
+    auto universal_name = compiler_state->module_name + "::" + identifier;
     compiler_state->iter++;
 
-    if (compiler_state->identifier_store.find(universalName) != std::end(compiler_state->identifier_store))
+    if (compiler_state->identifier_store.find(universal_name) != std::end(compiler_state->identifier_store))
     {
         compiler_state->errors.push_back({compiler_state->module_name, compiler_state->line_number, "Function : " + identifier + " is already defined"});
         return false;
@@ -149,12 +156,75 @@ bool Parser::MakeFunctionIdentifier(std::string &function_identifier)
 
     function_identifier = identifier;
 
-    PDEBUG(universalName);
-    compiler_state->identifier_store[universalName] = IdentifierInfo{identifier, compiler_state->module_name};
+    PDEBUG(universal_name);
+    compiler_state->identifier_store[universal_name] = IdentifierInfo{identifier, compiler_state->module_name};
     PDEBUG("out -> " + std::string(__FUNCTION__));
 
     return true;
 }
+
+bool Parser::MakeVariableIdentifier(const std::string &scope, std::string &var_name)
+{
+    PDEBUG(__FUNCTION__);
+
+    auto identifier = *(compiler_state->iter);
+
+    auto universal_name = compiler_state->module_name + "::" + scope + "::" + identifier;
+    compiler_state->iter++;
+
+    if (compiler_state->identifier_store.find(universal_name) != std::end(compiler_state->identifier_store))
+    {
+        compiler_state->errors.push_back({scope + "::" + compiler_state->module_name, compiler_state->line_number, "Identifier : " + identifier + " is already defined"});
+        return false;
+    }
+
+    SkipLF();
+
+    var_name = identifier;
+
+    PDEBUG(universal_name);
+    compiler_state->identifier_store[universal_name] = IdentifierInfo{identifier, scope + "::" + compiler_state->module_name};
+    PDEBUG("out -> " + std::string(__FUNCTION__));
+
+    return true;
+}
+
+bool Parser::MakeInitDeclarator(std::string &var_name, std::shared_ptr<AssignmentExpression> &assign_expr)
+{
+    std::string scope = compiler_state->scope;
+    bool result = MakeVariableIdentifier(scope, var_name);
+    if (!result) {
+        compiler_state->errors.push_back({scope + "::" + compiler_state->module_name, compiler_state->line_number, "Identifier : " + identifier + " is already defined"});
+    }
+    SkipLF();
+    
+}
+
+bool Parser::MakeVariableDeclaration(std::shared_ptr<VariableDeclaration> &var_decl)
+{
+    /*
+        patterns:
+            int a;
+            int b = 0;
+            int c = 0, d;
+            int e, f = 0;
+            int g = 0, h = 0;
+    */
+
+    
+    bool result = MakeTypeDefinition(var_decl->type) &&
+                  MakeInitDeclarator(var_decl->variable_name);
+    SkipLF();
+    if(*compiler_state->iter.compare(",")) {
+        std::shared_ptr<VariableDeclaration> var(new VariableDeclaration());
+        var->type = var_decl->type;
+        bool result2 = MakeInitDeclarator(var);
+    }
+    
+    variable = std::shared_ptr<VariableDeclaration> variable(new VariableDeclaration());
+    return true;
+}
+
 
 bool Parser::MakeReturnStatement(std::shared_ptr<ReturnStatement> &return_statement)
 {
@@ -210,19 +280,28 @@ bool Parser::MakeCompoundStatement(CompoundStatement &compound_statement)
                 break;
             }
 
-            std::shared_ptr<ReturnStatement> return_statement;
-            MakeReturnStatement(return_statement) && SkipSemicolon();
-            compound_statement.push_back(return_statement);
+            if (IsDefinedType(*compiler_state->iter)) {
 
-            SkipLF();
+                // local variable definition
+                std::shared_ptr<VariableDeclaration> variable_decl;
+                MakeVariableDeclaration(variable_decl) && SkipSemicolon();
+                compound_statement.push_back(variable_decl);
+                SkipLF();
 
-            // if (IsEqual(compiler_state->iter, ',')) {
-            //     ++(compiler_state->iter);
-            //     SkipLF();
-            // } else {
-            //     compiler_state->errors.push_back({ compiler_state->module_name, compiler_state->line_number, "Unexpected syntax : " + *compiler_state->iter });
-            //     return false;
-            // }
+            } else {
+                std::shared_ptr<ReturnStatement> return_statement;
+                MakeReturnStatement(return_statement) && SkipSemicolon();
+                compound_statement.push_back(return_statement);
+                SkipLF();
+
+                // if (IsEqual(compiler_state->iter, ',')) {
+                //     ++(compiler_state->iter);
+                //     SkipLF();
+                // } else {
+                //     compiler_state->errors.push_back({ compiler_state->module_name, compiler_state->line_number, "Unexpected syntax : " + *compiler_state->iter });
+                //     return false;
+                // }
+            }
         };
     }
 
@@ -237,14 +316,14 @@ bool Parser::MakeFunctionDefinition(std::shared_ptr<Function> &function)
 {
     PDEBUG(__FUNCTION__);
 
-    std::shared_ptr<Node> func_node(new Node);
-
     function = std::shared_ptr<Function>(new Function());
 
     bool result = MakeTypeDefinition(function->type) &&
                   MakeFunctionIdentifier(function->function_name) &&
-                  MakeArgumentDeclarationList(function->arguments) &&
-                  MakeCompoundStatement(function->statements);
+                  MakeArgumentDeclarationList(function->arguments);
+
+    compiler_state->scope += function->function_name;
+    result &&= MakeCompoundStatement(function->statements);
 
     PDEBUG("out -> " + std::string(__FUNCTION__));
 
@@ -364,6 +443,8 @@ bool Parser::MakeProgram(std::shared_ptr<Program> &program)
     {
         return false;
     }
+
+    compiler_state->scope = compiler_state->module_name + "::";
 
     program = std::shared_ptr<Program>(new Program());
 
