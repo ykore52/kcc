@@ -23,6 +23,7 @@ enum NodeType
 
     kIntegerLiteral,
     kStringLiteral,
+    kDeclRefExpr,
 
     kVariableDeclaration,
 
@@ -35,30 +36,32 @@ enum NodeType
     kFuncParam,
     kStatementReturn,
 
-    kPrimaryExpression,
-    kAssignmentExpression
+    kPrimaryExpr,
+    kBinaryExpr,
+    kAssignmentExpr
 };
 
-// 記述言語をアセンブリ言語に変換するための中間オブジェクト
-// ジャンプ先を記憶するために利用
-struct Instruction
+enum OperatorType
 {
-    Instruction() {}
-    Instruction(const Mnemonic mnemonic) : mnemonic(mnemonic) {}
-    Instruction(const Mnemonic &mnemonic, const std::shared_ptr<Instruction> &jump_dest, const std::string &line)
-        : mnemonic(mnemonic), destination(jump_dest), line(line) {}
-
-    void operator=(const Instruction &src)
-    {
-        mnemonic = src.mnemonic;
-        destination = src.destination;
-        line = src.line;
-    }
-
-    Mnemonic mnemonic;
-    std::shared_ptr<Instruction> destination;
-    std::string line;
+    kPlus,  // +
+    kMinus, // -
+    kMul,   // *
+    kDiv,   // /
 };
+
+#define TOKEN(name, token) static const char *name = token
+TOKEN(TKN_OPEN_PARENTHESIS, "(");
+TOKEN(TKN_CLOSE_PARENTHESIS, ")");
+TOKEN(TKN_OPEN_BRACE, "{");
+TOKEN(TKN_CLOSE_BRACE, "}");
+TOKEN(TKN_SEMICOLON, ";");
+
+TOKEN(TKN_EQUAL, "=");
+TOKEN(TKN_PLUS, "+");
+TOKEN(TKN_MINUS, "-");
+TOKEN(TKN_ASTERISK, "*");
+TOKEN(TKN_SLASH, "/");
+TOKEN(TKN_PERCENT, "%");
 
 // コンパイルエラー情報
 struct CompileErrorInfo
@@ -73,15 +76,57 @@ struct TypeInfo
 {
     std::string type_name;
     bool is_pointer;
-    int size; // バイト数
+    unsigned int size; // バイト数
     std::map<std::string, std::shared_ptr<TypeInfo>> member;
 };
 
 // 識別子情報
 struct IdentifierInfo
 {
-    std::string id;
+    std::string name;
     std::string module_name;
+    std::string scope;
+    unsigned int address;
+};
+
+struct DeclInfo
+{
+    TypeInfo type;
+    IdentifierInfo identifier;
+
+    DeclInfo() {}
+    DeclInfo(const TypeInfo &type, const IdentifierInfo &identifier)
+        : type(type), identifier(identifier) {}
+
+    std::string Name() noexcept
+    {
+        return identifier.name;
+    }
+
+    std::string Module() noexcept
+    {
+        return identifier.module_name;
+    }
+
+    std::string Scope() noexcept
+    {
+        return identifier.scope;
+    }
+
+    unsigned int Address() noexcept
+    {
+        return identifier.address;
+    }
+
+    std::string TypeName() noexcept
+    {
+        return type.type_name;
+    }
+
+    unsigned int Size() noexcept
+    {
+        return type.size;
+    }
 };
 
 // AST のノードとなるベースクラス
@@ -96,7 +141,6 @@ struct ASTNode
     NodeType node_type;
 };
 
-// ------------------------------------------------
 struct LiteralBase : public ASTNode
 {
     LiteralBase(NodeType t, std::string value) : ASTNode(t), value(value) {}
@@ -105,6 +149,7 @@ struct LiteralBase : public ASTNode
     std::string value;
 };
 
+// 整数リテラル
 struct IntegerLiteral : public LiteralBase
 {
     IntegerLiteral(std::string value) : LiteralBase(kIntegerLiteral, value) {}
@@ -112,6 +157,7 @@ struct IntegerLiteral : public LiteralBase
     virtual void Stdout() {}
 };
 
+// 文字列リテラル
 struct StringLiteral : public LiteralBase
 {
     StringLiteral(std::string value) : LiteralBase(kStringLiteral, value) {}
@@ -119,38 +165,98 @@ struct StringLiteral : public LiteralBase
     virtual void Stdout() {}
 };
 
-// ------------------------------------------------
-struct ExpressionBase : public ASTNode
+// 変数参照
+struct DeclRefExpr : public LiteralBase
 {
-    ExpressionBase(NodeType t) : ASTNode(t) {}
-    virtual std::string Assemble(AssemblyConfig &conf) { return "ExpressionBase"; }
+    DeclRefExpr(std::shared_ptr<DeclInfo> &decl) : LiteralBase(kDeclRefExpr, ""), decl(decl) {}
+    virtual std::string Assemble(AssemblyConfig &conf)
+    {
+        std::string type;
+        switch (decl->Size())
+        {
+        case 1:
+            type = "BYTE PTR";
+            break;
+        case 2:
+            type = "WORD PTR";
+            break;
+        case 4:
+            type = "DWORD PTR";
+            break;
+        case 8:
+            type = "QWORD PTR";
+            break;
+        }
+
+        return type + "[rbp-" + std::to_string(decl->Address()) + "]";
+    }
+
+    std::shared_ptr<DeclInfo> decl;
+};
+
+// ------------------------------------------------
+struct ExprBase : public ASTNode
+{
+    ExprBase(NodeType t) : ASTNode(t) {}
+    virtual std::string Assemble(AssemblyConfig &conf) { return "ExprBase"; }
     virtual void Stdout() {}
-    // child expression
-    std::shared_ptr<ExpressionBase> expression;
+    // child expr
+    std::shared_ptr<ExprBase> expr;
     TypeInfo type_of_expr;
 };
 
 // 代入式(右辺値)
-struct AssignmentExpression : public ExpressionBase
+struct AssignmentExpr : public ExprBase
 {
-    AssignmentExpression() : ExpressionBase(kAssignmentExpression) {}
-    
-    virtual std::string Assembly(AssemblyConfig &conf)
+    AssignmentExpr() : ExprBase(kAssignmentExpr) {}
+    AssignmentExpr(std::shared_ptr<DeclRefExpr> destination) : ExprBase(kAssignmentExpr), destination(destination) {}
+
+    virtual std::string Assemble(AssemblyConfig &conf)
     {
+        std::string result = "";
+        result += conf.asm_.Asm("push", {"rax"});
+
+        expr->Assemble(conf);
+
+        result += conf.asm_.Asm("pop", {"rax"});
+
         return "";
     }
 
     virtual void Stdout() {}
 
-    std::shared_ptr<ExpressionBase> expression;
+    std::shared_ptr<DeclRefExpr> destination; // output
+    std::shared_ptr<ExprBase> expr;
+};
+
+// 二項演算式
+struct BinaryExpr : public ExprBase
+{
+    BinaryExpr() : ExprBase(kBinaryExpr) {}
+    BinaryExpr(std::shared_ptr<ExprBase> &first,
+               std::shared_ptr<ExprBase> &second,
+               OperatorType operator_type) : ExprBase(kBinaryExpr), first(first), second(second), op_type(operator_type) {}
+
+    virtual std::string Assemble(AssemblyConfig &conf)
+    {
+    }
+
+    virtual void Stdout()
+    {
+    }
+
+    std::shared_ptr<ExprBase> first;
+    std::shared_ptr<ExprBase> second;
+
+    OperatorType op_type;
 };
 
 // 一次式
-struct PrimaryExpression : public ExpressionBase
+struct PrimaryExpr : public ExprBase
 {
-    PrimaryExpression() : ExpressionBase(kPrimaryExpression) {}
-    PrimaryExpression(std::shared_ptr<LiteralBase> &literal)
-        : ExpressionBase(kPrimaryExpression), literal(literal) {}
+    PrimaryExpr() : ExprBase(kPrimaryExpr) {}
+    PrimaryExpr(std::shared_ptr<LiteralBase> &literal)
+        : ExprBase(kPrimaryExpr), literal(literal) {}
     virtual std::string Assemble(AssemblyConfig &conf)
     {
         return conf.asm_.Asm("mov", {"rax", literal->value});
@@ -158,6 +264,8 @@ struct PrimaryExpression : public ExpressionBase
     virtual void Stdout() {}
 
     std::shared_ptr<LiteralBase> literal;
+
+    OperatorType op_type;
 };
 
 // ------------------------------------------------
@@ -188,18 +296,18 @@ struct VariableDeclaration : public DeclarationAndStatement
 struct ReturnStatement : public DeclarationAndStatement
 {
     ReturnStatement() : DeclarationAndStatement(kStatementReturn) {}
-    ReturnStatement(const std::shared_ptr<ExpressionBase> &e)
-        : DeclarationAndStatement(kStatementReturn), return_expression(e) {}
+    ReturnStatement(const std::shared_ptr<ExprBase> &e)
+        : DeclarationAndStatement(kStatementReturn), return_expr(e) {}
 
     virtual std::string Assemble(AssemblyConfig &conf) override
     {
         std::string code = "";
-        code += return_expression->Assemble(conf);
+        code += return_expr->Assemble(conf);
         return code;
     }
     virtual void Stdout() override {}
 
-    std::shared_ptr<ExpressionBase> return_expression;
+    std::shared_ptr<ExprBase> return_expr;
 };
 
 struct IfStatement : public DeclarationAndStatement
@@ -227,7 +335,8 @@ typedef std::vector<std::shared_ptr<Argument>> ArgumentList;
 typedef std::vector<std::shared_ptr<DeclarationAndStatement>> CompoundStatement;
 
 // ExternalDeclaration contains Function decl and Global Variable decl;
-struct ExternalDeclaration : public ASTNode {
+struct ExternalDeclaration : public ASTNode
+{
     ExternalDeclaration(NodeType t) : ASTNode(t) {}
     virtual std::string Assemble(AssemblyConfig &conf) { return "DeclaratExternalDeclarationionAndStatement"; }
     virtual void Stdout() {}
@@ -244,7 +353,8 @@ struct Function : public ExternalDeclaration
     std::string Assemble(AssemblyConfig &conf) override
     {
         std::string code = "";
-        if (function_name.compare("main") == 0) {
+        if (function_name.compare("main") == 0)
+        {
             code += conf.asm_.Directive("globl _main");
             code += conf.asm_.Label("_main");
         }
@@ -375,14 +485,15 @@ class Parser
 
     bool IsEqual(const std::vector<std::string>::iterator &it, char c);
     bool IsDefinedType(const std::string &str);
-    NodeType Which(std::vector<std::string>::iterator &it);
 
     bool SkipSemicolon();
     void SkipLF();
 
     bool MakeVariableDeclaration(std::vector<std::shared_ptr<VariableDeclaration>> &variables);
     bool MakeVariableIdentifier(const std::string &scope, std::string &var_name);
-    bool MakeInitDeclarator(std::string &var_name, std::shared_ptr<AssignmentExpression> &assign_expr);
+    bool MakeInitDeclarator(const std::shared_ptr<TypeInfo> &type, std::string &var_name, std::shared_ptr<AssignmentExpr> &assign_expr);
+    bool MakeAssignmentExpr(std::shared_ptr<AssignmentExpr> &assign_expr);
+    bool MakeExpr(std::shared_ptr<ExprBase> &expr);
 
     bool MakeTypeDefinition(std::shared_ptr<TypeInfo> &type);
     bool MakeArgumentDeclaration(std::shared_ptr<Argument> &argument);
@@ -392,13 +503,41 @@ class Parser
     bool MakeReturnStatement(std::shared_ptr<ReturnStatement> &return_statement);
     bool MakeCompoundStatement(CompoundStatement &compound_statement);
     bool MakeFunctionDefinition(std::shared_ptr<Function> &function);
-    
-    bool MakeExpression(std::shared_ptr<PrimaryExpression> &primary_expression);
+
+    bool MakeBinaryExpr(std::shared_ptr<BinaryExpr> &primary_expr);
+    bool MakePrimaryExpr(std::shared_ptr<PrimaryExpr> &primary_expr);
 
     bool MakeStringLiteral(std::shared_ptr<StringLiteral> &string_literal);
     bool MakeIntegerLiteral(std::shared_ptr<IntegerLiteral> &integer_literal);
 
     bool MakeProgram(std::shared_ptr<Program> &program);
+
+    inline const std::string &Token(int n = 0)
+    {
+        if (compiler_state->iter + n >= std::end(compiler_state->buf))
+        {
+            throw "End of tokens";
+        }
+        return *(compiler_state->iter + n);
+    }
+
+    inline const std::vector<std::string>::iterator &FwdCursor(int n = 1)
+    {
+        if (compiler_state->iter + n >= std::end(compiler_state->buf))
+        {
+            throw "End of tokens";
+        }
+        return *(compiler_state->iter + n);
+    }
+
+    inline const std::vector<std::string>::iterator &BwdCursor(int n = 1)
+    {
+        if (compiler_state->iter - n <= std::begin(compiler_state->buf) - 1)
+        {
+            throw "End of tokens";
+        }
+        return *(compiler_state->iter - n);
+    }
 
     std::shared_ptr<CompilerState> compiler_state;
 };

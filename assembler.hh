@@ -27,6 +27,23 @@ enum AssemblySyntaxMode
 };
 
 
+// アセンブリ/バイナリコードの1命令を格納するオブジェクト
+struct Instruction
+{
+    Instruction() {}
+    Instruction(const Mnemonic mnemonic) : mnemonic(mnemonic) {}
+
+    Mnemonic mnemonic;
+    std::vector<Instruction> arguments;
+    std::string label;
+};
+
+// struct MOV : public Instruction
+// {
+//     MOV(Mnemonic::RegisterX64 dest, ) : Instruction(Mnemonic::MOV);
+// };
+
+
 class Assembler
 {
   public:

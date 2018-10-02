@@ -13,8 +13,7 @@ namespace kcc
 // Tokenizer
 void Tokenizer::Tokenize(std::vector<char> &buffer, std::vector<std::string>* tokens)
 {
-    auto iter = std::begin(buffer);
-    while (iter != std::end(buffer))
+    for (auto iter = std::begin(buffer); iter != std::end(buffer);)
     {
         auto token = FetchToken(buffer, iter);
         if (token.size() == 0)
@@ -22,27 +21,15 @@ void Tokenizer::Tokenize(std::vector<char> &buffer, std::vector<std::string>* to
             continue;
         }
 
-        // if (ReadReservedKeyword(tokens, token, KW_INT))
-        // {
-        //     tokens.push_back(std::string(token.begin(), token.end()));
-        //     continue;
-        // }
-
-        // std::cout << "word : "<< std::string(token.begin(), token.end()) << std::endl;
-        // if (ReadReservedKeyword(tokens, token, KW_RETURN))
-        // {
-        //     tokens.push_back(std::string(token.begin(), token.end()));
-        //     continue;
-        // }
-
-        PrintCharVector(token);
+        // PrintCharVector(token);
         tokens->push_back(std::string(token.begin(), token.end()));
     }
 }
 
-std::vector<char> Tokenizer::FetchToken(std::vector<char> &buffer, std::vector<char>::iterator &iter)
+Token& Tokenizer::FetchToken(std::vector<char> &buffer, std::vector<char>::iterator &iter)
 {
     std::vector<char> token;
+    Token token_object;
 
     while (iter != std::end(buffer))
     {
@@ -69,9 +56,17 @@ std::vector<char> Tokenizer::FetchToken(std::vector<char> &buffer, std::vector<c
         }
         if (*iter == TK_LF)
         {
+            token_object.type = TkLineFeed;
             token.push_back(TK_LF);
             ++iter;
             break;
+        }
+
+        // integer literal
+        if (token.size() == 0) {
+
+        } else {
+            
         }
 
         // literals
@@ -102,7 +97,8 @@ std::vector<char> Tokenizer::FetchToken(std::vector<char> &buffer, std::vector<c
         break;
     }
 
-    return token;
+    token_object.token = std::string(token.begin(), token.end());
+    return token_object;
 }
 
 bool Tokenizer::ReadReservedKeyword(std::vector<std::string> &tokens,
