@@ -202,20 +202,20 @@ bool Parser::MakeAssignmentExpr(std::shared_ptr<AssignmentExpr> &assign_expr)
 
     if (Token() == TKN_OPEN_PARENTHESIS) {
         assign_expr->expr = std::shared_ptr<PrimaryExpr>(new PrimaryExpr());
-        bool result = MakePrimaryExpr(assign_expr->expr);
+        bool result = MakePrimaryExpr(std::dynamic_pointer_cast<PrimaryExpr>(assign_expr->expr));
 
         if (Token() != TKN_CLOSE_PARENTHESIS) {
             compiler_state->errors.push_back({
-                scope + "::" + compiler_state->module_name,
+                compiler_state->scope + "::" + compiler_state->module_name,
                 compiler_state->line_number,
                 "Unexpected token : " + Token()
             });
         }
         FwdCursor();
     }
-    else if (Token()) {
+    // else if (Token()) {
         
-    }
+    // }
 
     return true;
 }

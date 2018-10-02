@@ -527,7 +527,7 @@ class Parser
         {
             throw "End of tokens";
         }
-        return *(compiler_state->iter + n);
+        return (compiler_state->iter + n);
     }
 
     inline const std::vector<std::string>::iterator &BwdCursor(int n = 1)
@@ -536,7 +536,7 @@ class Parser
         {
             throw "End of tokens";
         }
-        return *(compiler_state->iter - n);
+        return (compiler_state->iter - n);
     }
 
     std::shared_ptr<CompilerState> compiler_state;
