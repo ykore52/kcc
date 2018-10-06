@@ -189,7 +189,7 @@ bool Parser::MakeVariableIdentifier(const std::string &scope, std::string &var_n
 
     var_name = identifier;
 
-    PDEBUG(universal_name);
+    PDEBUG("univ name is : " + universal_name);
     compiler_state->identifier_store[universal_name] = IdentifierInfo{identifier, scope + "::" + compiler_state->module_name};
     PDEBUG("out -> " + std::string(__FUNCTION__));
 
@@ -287,6 +287,8 @@ bool Parser::MakeVariableDeclaration(std::vector<std::shared_ptr<VariableDeclara
     {
         variables.push_back(var_decl);
     }
+
+    throw "hoge";
 
     while (Token().token != ";")
     {
@@ -416,7 +418,7 @@ bool Parser::MakeFunctionDefinition(std::shared_ptr<Function> &function)
                   MakeFunctionIdentifier(function->function_name) &&
                   MakeArgumentDeclarationList(function->arguments);
 
-    compiler_state->scope += function->function_name;
+    compiler_state->scope += "::" + function->function_name;
     result &= MakeCompoundStatement(function->statements);
 
     PDEBUG("out -> " + std::string(__FUNCTION__));
@@ -537,7 +539,7 @@ bool Parser::MakeProgram(std::shared_ptr<Program> &program)
         return false;
     }
 
-    compiler_state->scope = compiler_state->module_name + "::";
+    compiler_state->scope = compiler_state->module_name;
 
     program = std::shared_ptr<Program>(new Program());
 
