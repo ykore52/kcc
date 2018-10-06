@@ -1,11 +1,11 @@
-#ifndef TOKENIZER2_TEST_HH
-#define TOKENIZER2_TEST_HH
+#ifndef TOKENIZER_TEST_HH
+#define TOKENIZER_TEST_HH
 
 #include "../util.hh"
 #include "../testing.hh"
-#include "../tokenizer2.hh"
+#include "../tokenizer.hh"
 
-namespace kcc2
+namespace kcc
 {
 
 class Tokenize_Tokenizer_Test

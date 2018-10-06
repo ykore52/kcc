@@ -8,9 +8,10 @@
 
 #include "util.hh"
 
-#define ERROR(str) std::cerr << __FILE__ << " (" << __LINE__ << "): " << str << std::endl;
+#define ERROR(str) \
+    std::cerr << __FILE__ << " (" << __LINE__ << "): " << str << std::endl;
 
-namespace kcc2
+namespace kcc
 {
 
 enum TokenType
@@ -36,10 +37,9 @@ enum TokenType
     tkMinus,     // -
     tkDecrement, // --
 
-    tkNot,       // !
-    tkQuote,     // '
+    tkNot,         // !
+    tkQuote,       // '
     tkDoubleQuote, // "
-
 
     tkNull
 };
@@ -59,10 +59,7 @@ static inline bool IsPrintable(char c)
     return false;
 }
 
-static inline bool IsNumber(char c)
-{
-    return ('0' <= c && c <= '9');
-}
+static inline bool IsNumber(char c) { return ('0' <= c && c <= '9'); }
 
 static inline bool IsHexdecimal(char c)
 {
@@ -128,31 +125,41 @@ class Tokenizer
                 bool may_be_hex_0 = false;
                 bool may_be_hex_x = false;
 
-                while ((IsHexdecimal(Ch()) || Ch() == 'x') && it_ != std::end(buffer_))
+                if (Ch() == '0')
                 {
-                    if (n == 0 && Ch() == '0') {
-                        may_be_hex_0 = true;
-                    }
-
-                    if (n == 1 && Ch() == 'x') {
-                        may_be_hex_x = true;
-                    }
-
+                    may_be_hex_0 = true;
                     tok.push_back(Ch());
                     Fwd();
-                    ++n;
                 }
 
-                TokenType tt;
-                if (may_be_hex_0 && may_be_hex_x)
-                    tt = tkHexDecimal;
-                else
-                    tt = tkDecimal;
+                if (Ch() == 'x')
+                {
+                    may_be_hex_x = true;
+                    tok.push_back(Ch());
+                    Fwd();
+                }
 
-                dest->push_back({std::string(tok.begin(), tok.end()),
-                                 tt,
-                                 line_,
-                                 pos_});
+                TokenType tt = tkNull;
+                if (may_be_hex_0 && may_be_hex_x)
+                {
+                    tt = tkHexDecimal;
+                    while (IsHexdecimal(Ch()) && it_ != std::end(buffer_))
+                    {
+                        tok.push_back(Ch());
+                        Fwd();
+                    }
+                }
+                else
+                {
+                    tt = tkDecimal;
+                    while (IsNumber(Ch()) && it_ != std::end(buffer_))
+                    {
+                        tok.push_back(Ch());
+                        Fwd();
+                    }
+                }
+
+                dest->push_back({std::string(tok.begin(), tok.end()), tt, line_, pos_});
                 continue;
             }
 
@@ -166,10 +173,8 @@ class Tokenizer
                     Fwd();
                 }
 
-                dest->push_back({std::string(tok.begin(), tok.end()),
-                                 TokenType::tkWord,
-                                 line_,
-                                 pos_});
+                dest->push_back({std::string(tok.begin(), tok.end()), TokenType::tkWord,
+                                 line_, pos_});
                 continue;
             }
 
@@ -225,10 +230,8 @@ class Tokenizer
                         tt = tkIncrement;
                         tok.push_back(Ch());
                         Fwd();
-                        dest->push_back({std::string(tok.begin(), tok.end()),
-                                         tt,
-                                         line_,
-                                         pos_});
+                        dest->push_back(
+                            {std::string(tok.begin(), tok.end()), tt, line_, pos_});
                         may_be_increment = false; // フラグを戻しておく
                         continue;
                     }
@@ -257,10 +260,8 @@ class Tokenizer
                         tt = tkDecrement;
                         tok.push_back(Ch());
                         Fwd();
-                        dest->push_back({std::string(tok.begin(), tok.end()),
-                                         tt,
-                                         line_,
-                                         pos_});
+                        dest->push_back(
+                            {std::string(tok.begin(), tok.end()), tt, line_, pos_});
                         may_be_decrement = false; // フラグを戻しておく
                         continue;
                     }
@@ -282,10 +283,7 @@ class Tokenizer
 
                 tok.push_back(Ch());
                 Fwd();
-                dest->push_back({std::string(tok.begin(), tok.end()),
-                                 tt,
-                                 line_,
-                                 pos_});
+                dest->push_back({std::string(tok.begin(), tok.end()), tt, line_, pos_});
                 continue;
             }
         }

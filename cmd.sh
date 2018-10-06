@@ -22,7 +22,8 @@ function utest() {
     for SRC in `ls test/*_test.cc`
     do
         executable="./test/bin/$(basename ${SRC##.cc})"
-        ${CC} ${OPTS} ${SRC} -o ${executable}
+        sources=$(find . -type f -name "*.cc" -and -not -name "*_test.cc" -and -not -name "main.cc")
+        ${CC} ${OPTS} ${SRC} ${sources} -o ${executable}
 
         if [[ $? == 0 ]]; then
 

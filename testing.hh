@@ -26,7 +26,7 @@ class Testing
         ++num_test_;
     }
 
-    static bool DisplaySummary() noexcept
+    static void DisplaySummary() noexcept
     {
         std::cout << "====================" << std::endl;
         std::cout << "[Test Summary]" << std::endl;

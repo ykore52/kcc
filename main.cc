@@ -19,33 +19,19 @@ struct CmdOptions
 // Compiling a source codesource codes.
 int Compile(std::string &assembly, const std::string &module_name, std::vector<char> &buffer)
 {
-    //  std::cout << "--- Compile start ---" << std::endl;
+    PDEBUG("======= Tokenization =======");
 
-    // auto tokens = tokenizer.Tokenize(buffer);
-
-    // std::cout << "--- tokenization result ---" << std::endl;
-    // for (auto token : tokens)
-    // {
-    //     std::cout << token << ":" << token.length() << std::endl;
-    // }
-
-    std::cout << "--- syntax check begin ---" << std::endl;
     auto compiler_state = std::shared_ptr<CompilerState>(new CompilerState);
+
     Tokenizer tokenizer;
-    tokenizer.Tokenize(buffer, &compiler_state->buf);
-    compiler_state->iter = std::begin(compiler_state->buf);
-    compiler_state->line_number = 0;
-    std::cout << "--- syntax check end ---" << std::endl;
-
-
-    // for (auto i = compiler_state->buf.begin(); i != compiler_state->buf.end(); i++) {
-    //     std::cout << static_cast<const void*>(&std::end(compiler_state->buf)) << ":" << *i << ":" << std::endl;
-    // }
-
+    tokenizer.Tokenize(buffer, &(compiler_state->buf));
+    
+    compiler_state->iter = std::end(compiler_state->buf);
+ 
     Parser parser(compiler_state);
     auto prog = parser.SyntaxCheck();
-    PDEBUG("================= Code Generation ========================");
-    //prog->Stdout();
+
+    PDEBUG("======= Code Generation ========");
 
     parser.GenerateAssembly(prog, &assembly);
     return 0;

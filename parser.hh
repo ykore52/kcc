@@ -11,6 +11,7 @@
 
 #include "util.hh"
 #include "assembler.hh"
+#include "tokenizer.hh"
 
 namespace kcc
 {
@@ -239,6 +240,7 @@ struct BinaryExpr : public ExprBase
 
     virtual std::string Assemble(AssemblyConfig &conf)
     {
+        return "";
     }
 
     virtual void Stdout()
@@ -290,6 +292,7 @@ struct VariableDeclaration : public DeclarationAndStatement
     std::string Assemble(AssemblyConfig &conf) override
     {
         std::string code = "";
+        return "";
     }
 };
 
@@ -433,13 +436,13 @@ struct CompilerState
     std::string module_name;
 
     // line number in module
-    int line_number;
+    int line_number = 0;
 
     // input data
-    std::vector<std::string> buf;
+    std::vector<Token> buf;
 
     // current position
-    std::vector<std::string>::iterator iter;
+    std::vector<Token>::iterator iter;
 
     // type information store
     std::map<std::string, TypeInfo> type_store;
@@ -483,7 +486,7 @@ class Parser
   private:
     void Init();
 
-    bool IsEqual(const std::vector<std::string>::iterator &it, char c);
+    bool IsEqual(std::vector<kcc::Token>::iterator &it, char c);
     bool IsDefinedType(const std::string &str);
 
     bool SkipSemicolon();
@@ -512,29 +515,29 @@ class Parser
 
     bool MakeProgram(std::shared_ptr<Program> &program);
 
-    inline const std::string &Token(int n = 0)
+    inline const Token Token(int n = 0)
     {
         if (compiler_state->iter + n >= std::end(compiler_state->buf))
         {
-            throw "End of tokens";
+            throw "tokens : out of range";
         }
         return *(compiler_state->iter + n);
     }
 
-    inline const std::vector<std::string>::iterator &FwdCursor(int n = 1)
+    inline const std::vector<kcc::Token>::iterator FwdCursor(int n = 1)
     {
         if (compiler_state->iter + n >= std::end(compiler_state->buf))
         {
-            throw "End of tokens";
+            throw "tokens : out of range";
         }
         return (compiler_state->iter + n);
     }
 
-    inline const std::vector<std::string>::iterator &BwdCursor(int n = 1)
+    inline const std::vector<kcc::Token>::iterator BwdCursor(int n = 1)
     {
         if (compiler_state->iter - n <= std::begin(compiler_state->buf) - 1)
         {
-            throw "End of tokens";
+            throw "tokens : out of range";
         }
         return (compiler_state->iter - n);
     }

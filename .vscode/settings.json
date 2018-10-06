@@ -66,5 +66,5 @@
         "__split_buffer": "cpp"
     },
 
-    "files.eol": "\r\n"
+    "files.eol": "\n"
 }
