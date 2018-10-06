@@ -1,9 +1,9 @@
 #ifndef TOKENIZER2_TEST_HH
 #define TOKENIZER2_TEST_HH
 
-#include "util.hh"
-#include "testing.hh"
-#include "tokenizer2.hh"
+#include "../util.hh"
+#include "../testing.hh"
+#include "../tokenizer2.hh"
 
 namespace kcc2
 {
@@ -34,49 +34,58 @@ class Tokenize_Tokenizer_Test
         return srcbuf;
     }
 
-    bool SkipBlockComment_BasicTest()
+    void SkipSpace_BasicTest()
+    {
+        // input
+        Tokenizer tzr;
+        tzr.Init(PrepareInput("    \n   "));
+        TEST(tzr.SkipSpace());
+    }
+
+    void SkipBlockComment_BasicTest()
     {
         // input
         Tokenizer tzr;
         tzr.Init(PrepareInput("/* hoge */"));
 
         // asserts
-        TEST(tzr.SkipBlockComment() == 0);
+        TEST(tzr.SkipBlockComment());
     }
 
-    bool SkipBlockComment_ErrorTest()
+    void SkipBlockComment_ErrorTest()
     {
         // input
         Tokenizer tzr;
         tzr.Init(PrepareInput("/* hoge"));
 
         // asserts
-        TEST(tzr.SkipBlockComment() == -1);
+        TEST_NOT(tzr.SkipBlockComment());
     }
 
-    bool Tokenize_Test()
+    void Tokenize_Test()
     {
 
         // output
         std::vector<Token> tokens;
 
         Tokenizer tzr;
-        tzr.Tokenize(PrepareInput("int main() { return 2; }"), &tokens);
+        tzr.Tokenize(PrepareInput("int main() {\r\n    return 2;\n}"), &tokens);
 
-        TEST(tokens[0].token == "int");
-        TEST(tokens[1].token == "main");
-        TEST(tokens[2].token == "(");
-        TEST(tokens[3].token == ")");
-        TEST(tokens[4].token == "{");
-        TEST(tokens[5].token == "return");
-        TEST(tokens[6].token == "2");
-        TEST(tokens[7].token == ";");
-        TEST(tokens[8].token == "}");
+        TEST_EQUAL(tokens[0].token, "int");
+        TEST_EQUAL(tokens[1].token, "main");
+        TEST_EQUAL(tokens[2].token, "(");
+        TEST_EQUAL(tokens[3].token, ")");
+        TEST_EQUAL(tokens[4].token, "{");
+        TEST_EQUAL(tokens[5].line, 2);
+        TEST_EQUAL(tokens[5].token, "return");
+        TEST_EQUAL(tokens[6].token, "2");
+        TEST_EQUAL(tokens[7].token, ";");
+        TEST_EQUAL(tokens[8].token, "}");
 
-        for (auto t : tokens)
-        {
-            std::cout << t.token << std::endl;
-        }
+        // for (auto t : tokens)
+        // {
+        //     std::cout << t.token << std::endl;
+        // }
     }
 };
 

@@ -7,4 +7,6 @@ int main()
     Tokenize_Tokenizer_Test t;
 
     t.Run();
+
+    ::Testing::DisplaySummary();
 }

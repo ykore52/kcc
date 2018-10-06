@@ -12,49 +12,48 @@ function build() {
     ${CC} ${OPTS} ${sources} -o ${BINKCC}
 }
 
-function unittest() {
-    echo "===== start unit tests ====="
+function utest() {
 
+    echo "##### begin tests #####"
 
-    tmpfile=`mktemp`
-    { \
-        echo "int main() {}"; \
-    } >> ${tmpfile}
-    ${BINKCC} ${tmpfile}
-    if [[ $? == 0 ]]; then
-        echo "OK"
-    else 
-        echo "FAIL"
-    fi
-    rm ${tmpfile}
+    num_test=$(expr $(ls test/*_test.cc | wc -l))
+    cnt=1
 
-    ${BINKCC} test/return2.c || echo "FAIL"
+    for SRC in `ls test/*_test.cc`
+    do
+        executable="./test/bin/$(basename ${SRC##.cc})"
+        ${CC} ${OPTS} ${SRC} -o ${executable}
 
-    # tmpfile=`mktemp`
-    # { \
-    #     echo "int main() {"; \
-    #     echo "        return 2;" \
-    #     echo "}"; \
-    # } >> ${tmpfile}
-    # ${BINKCC} ${tmpfile}
-    # if [[ $? == 0 ]]; then
-    #     echo "OK"
-    # else 
-    #     echo "FAIL"
-    # fi
-    # rm ${tmpfile}
+        if [[ $? == 0 ]]; then
 
-    echo "===== finish unit tests ====="
+            # run executable
+            ${executable}
+
+            if [[ $? == 0 ]]; then
+                echo "SUCCESS (${cnt}/${num_test}) - ${SRC}"
+            else
+                echo "FAILED to run (${cnt}/${num_test}) - ${SRC}"
+            fi
+
+        else
+            echo "FAILED (${cnt}/${num_test}) - ${SRC}"
+        fi
+
+        cnt=$(expr ${cnt} + 1)
+    done
+
+    echo "##### Finished all tests #####"
 }
 
-test -e "./bin" || mkdir ./bin
+test -e ./bin || mkdir ./bin
 
 if [ "$1" == "build" ]; then
     build
 elif [ "$1" == "test" ]; then
-    unittest
+    test -e ./test/bin || mkdir ./test/bin
+    utest
 elif [ "$1" == "all" ]; then
-    build && unittest
+    build && utest
 else
     echo "./cmd.sh (build|test|ast)"
 fi
