@@ -41,6 +41,41 @@ enum TokenType
     tkQuote,       // '
     tkDoubleQuote, // "
 
+
+    // 予約語
+    tkAuto,
+    tkBreak,
+    tkCase,
+    tkChar,
+    tkConst,
+    tkContinue,
+    tkDefault,
+    tkDo,
+    tkDouble,
+    tkElse,
+    tkEnum,
+    tkExtern,
+    tkFloat,
+    tkFor,
+    tkGoto,
+    tkIf,
+    tkInt,
+    tkLong,
+    tkRegister,
+    tkReturn,
+    tkShort,
+    tkSigned,
+    tkSizeof,
+    tkStatic,
+    tkStruct,
+    tkSwitch,
+    tkTypedef,
+    tkUnion,
+    tkUnsigned,
+    tkVoid,
+    tkVolatile,
+    tkWhile,
+
     tkNull
 };
 
@@ -173,7 +208,11 @@ class Tokenizer
                     Fwd();
                 }
 
-                dest->push_back({std::string(tok.begin(), tok.end()), TokenType::tkWord,
+                // 予約語かどうかを判定
+                auto str = std::string(tok.begin(), tok.end());
+                TokenType tt = GetTokenType(str);
+
+                dest->push_back({str, tt,
                                  line_, pos_});
                 continue;
             }
@@ -411,6 +450,12 @@ class Tokenizer
         }
 
         return 0;
+    }
+
+    TokenType GetTokenType(std::string &str)
+    {
+        if (str == "auto") return tkAuto;
+        
     }
 
     std::vector<char> buffer_;

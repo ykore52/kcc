@@ -63,6 +63,8 @@ TOKEN(TKN_MINUS, "-");
 TOKEN(TKN_ASTERISK, "*");
 TOKEN(TKN_SLASH, "/");
 TOKEN(TKN_PERCENT, "%");
+TOKEN(TKN_QUOTE, "'");
+TOKEN(TKN_DOUBLEQUOTE, "\"");
 
 // コンパイルエラー情報
 struct CompileErrorInfo
@@ -432,6 +434,28 @@ struct Program : public ASTNode
 
 struct CompilerState
 {
+    // 識別子が登録済みであるかを判定
+    //   true  : 登録済み
+    //   false : 未登録
+    bool IsDefinedVar(const std::string &univ_name)
+    {
+        return identifier_store.find(univ_name) != std::end(identifier_store);
+    }
+
+    // 識別子ストアへの登録
+    //   true  : 登録成功
+    //   false : 登録失敗
+    bool RegistID(const std::string &id, const std::string &scope)
+    {
+        auto uid = module_name + "::" + scope + "::" + id;
+        if (IsDefinedVar(uid))
+            return false;
+
+        identifier_store[uid] = IdentifierInfo{id, module_name + "::" + scope};
+
+        return true;
+    }
+
     // module name
     std::string module_name;
 
@@ -488,6 +512,7 @@ class Parser
 
     bool IsEqual(std::vector<kcc::Token>::iterator &it, char c);
     bool IsDefinedType(const std::string &str);
+    bool IsDefinedVar(const std::string &var);
 
     bool SkipSemicolon();
     void SkipLF();
@@ -519,27 +544,34 @@ class Parser
     {
         if (compiler_state->iter + n >= std::end(compiler_state->buf))
         {
-            throw "tokens : out of range";
+            throw_ln("tokens : out of range");
         }
         return *(compiler_state->iter + n);
     }
 
     inline const std::vector<kcc::Token>::iterator FwdCursor(int n = 1)
     {
-        if (compiler_state->iter + n >= std::end(compiler_state->buf))
+        if (compiler_state->iter + n > std::end(compiler_state->buf))
         {
-            throw "tokens : out of range";
+            throw_ln("tokens : out of range");
         }
-        return (compiler_state->iter + n);
+        return (compiler_state->iter += n);
     }
 
     inline const std::vector<kcc::Token>::iterator BwdCursor(int n = 1)
     {
         if (compiler_state->iter - n <= std::begin(compiler_state->buf) - 1)
         {
-            throw "tokens : out of range";
+            throw_ln("tokens : out of range");
         }
-        return (compiler_state->iter - n);
+        return (compiler_state->iter -= n);
+    }
+
+    inline void ShowTokenInfo()
+    {
+        std::cout << "-- TokenInfo ----" << std::endl;
+        std::cout << " token :" << Token().token << std::endl;
+        std::cout << " type  :" << Token().type << std::endl;
     }
 
     std::shared_ptr<CompilerState> compiler_state;

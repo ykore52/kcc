@@ -54,10 +54,15 @@ bool Parser::IsDefinedType(const std::string &str)
     return compiler_state->type_store.find(str) != std::end(compiler_state->type_store);
 }
 
+bool Parser::IsDefinedVar(const std::string &uid)
+{
+    return compiler_state->identifier_store.find(uid) != std::end(compiler_state->identifier_store);
+}
+
 bool Parser::SkipSemicolon()
 {
 
-    PDEBUG(__FUNCTION__);
+    DBG_IN(__FUNCTION__);
 
     if (IsEqual(compiler_state->iter, ';'))
     {
@@ -87,8 +92,9 @@ void Parser::SkipLF()
 // 型定義
 bool Parser::MakeTypeDefinition(std::shared_ptr<TypeInfo> &type)
 {
-    PDEBUG(__FUNCTION__);
+    DBG_IN(__FUNCTION__);
     auto type_name = Token().token;
+    PDEBUG("token is : " + Token().token);
     compiler_state->iter++;
     if (compiler_state->type_store.find(type_name) == std::end(compiler_state->type_store))
     {
@@ -99,14 +105,16 @@ bool Parser::MakeTypeDefinition(std::shared_ptr<TypeInfo> &type)
     SkipLF();
 
     type = std::make_shared<TypeInfo>(compiler_state->type_store[type_name]);
+
+    DBG_OUT(__FUNCTION__);
     return true;
 }
 
 // 引数の宣言
 bool Parser::MakeArgumentDeclaration(std::shared_ptr<Argument> &argument)
 {
-    PDEBUG(__FUNCTION__);
-    PDEBUG("out -> " + std::string(__FUNCTION__));
+    DBG_IN(__FUNCTION__);
+    DBG_OUT(__FUNCTION__);
 
     return true;
 }
@@ -114,18 +122,18 @@ bool Parser::MakeArgumentDeclaration(std::shared_ptr<Argument> &argument)
 // 引数宣言のリスト
 bool Parser::MakeArgumentDeclarationList(ArgumentList &arguments)
 {
-    PDEBUG(__FUNCTION__);
+    DBG_IN(__FUNCTION__);
 
     if (!IsEqual(compiler_state->iter, '('))
     {
         compiler_state->errors.push_back(
             {compiler_state->module_name,
              compiler_state->line_number,
-             "Unexpected syntax : " + compiler_state->iter->token});
+             "Unexpected syntax : " + Token().token});
         return false;
     }
 
-    ++(compiler_state->iter);
+    FwdCursor();
     SkipLF();
 
     while (!IsEqual(compiler_state->iter, ')'))
@@ -135,23 +143,23 @@ bool Parser::MakeArgumentDeclarationList(ArgumentList &arguments)
         arguments.push_back(arg);
     }
 
-    ++(compiler_state->iter);
+    FwdCursor();
     SkipLF();
-    PDEBUG("out -> " + std::string(__FUNCTION__));
+    DBG_OUT(__FUNCTION__);
     return true;
 }
 
 // 関数宣言
 bool Parser::MakeFunctionIdentifier(std::string &function_identifier)
 {
-    PDEBUG(__FUNCTION__);
+    DBG_IN(__FUNCTION__);
 
     auto identifier = Token().token;
 
-    auto universal_name = compiler_state->module_name + "::" + identifier;
+    auto uid = compiler_state->module_name + "::" + identifier;
     compiler_state->iter++;
 
-    if (compiler_state->identifier_store.find(universal_name) != std::end(compiler_state->identifier_store))
+    if (compiler_state->identifier_store.find(uid) != std::end(compiler_state->identifier_store))
     {
         compiler_state->errors.push_back({compiler_state->module_name, compiler_state->line_number, "Function : " + identifier + " is already defined"});
         return false;
@@ -160,11 +168,10 @@ bool Parser::MakeFunctionIdentifier(std::string &function_identifier)
     SkipLF();
 
     function_identifier = identifier;
-    compiler_state->scope += identifier;
 
-    PDEBUG(universal_name);
-    compiler_state->identifier_store[universal_name] = IdentifierInfo{identifier, compiler_state->module_name};
-    PDEBUG("out -> " + std::string(__FUNCTION__));
+    PDEBUG(uid);
+    compiler_state->identifier_store[uid] = IdentifierInfo{identifier, compiler_state->module_name};
+    DBG_OUT(__FUNCTION__);
 
     return true;
 }
@@ -172,14 +179,14 @@ bool Parser::MakeFunctionIdentifier(std::string &function_identifier)
 // 変数名(識別子)
 bool Parser::MakeVariableIdentifier(const std::string &scope, std::string &var_name)
 {
-    PDEBUG(__FUNCTION__);
+    DBG_IN(__FUNCTION__);
 
     auto identifier = Token().token;
 
-    auto universal_name = compiler_state->module_name + "::" + scope + "::" + identifier;
+    auto uid = scope + "::" + identifier;
     compiler_state->iter++;
 
-    if (compiler_state->identifier_store.find(universal_name) != std::end(compiler_state->identifier_store))
+    if (IsDefinedVar(uid))
     {
         compiler_state->errors.push_back({scope + "::" + compiler_state->module_name, compiler_state->line_number, "Identifier : " + identifier + " is already defined"});
         return false;
@@ -189,9 +196,10 @@ bool Parser::MakeVariableIdentifier(const std::string &scope, std::string &var_n
 
     var_name = identifier;
 
-    PDEBUG("univ name is : " + universal_name);
-    compiler_state->identifier_store[universal_name] = IdentifierInfo{identifier, scope + "::" + compiler_state->module_name};
-    PDEBUG("out -> " + std::string(__FUNCTION__));
+    PDEBUG("univ name is : " + uid);
+    compiler_state->RegistID(identifier, scope);
+    // compiler_state->identifier_store[uid] = IdentifierInfo{identifier, scope + "::" + compiler_state->module_name};
+    DBG_OUT(__FUNCTION__);
 
     return true;
 }
@@ -263,6 +271,8 @@ bool Parser::MakeInitDeclarator(const std::shared_ptr<TypeInfo> &type, std::stri
 // ローカル変数宣言
 bool Parser::MakeVariableDeclaration(std::vector<std::shared_ptr<VariableDeclaration>> &variables)
 {
+    DBG_IN(__FUNCTION__);
+
     /*
         patterns:
             int a;
@@ -275,7 +285,7 @@ bool Parser::MakeVariableDeclaration(std::vector<std::shared_ptr<VariableDeclara
     auto var_decl = std::shared_ptr<VariableDeclaration>(new VariableDeclaration(compiler_state->stack_rel_addr));
 
     auto assign_expr = std::shared_ptr<AssignmentExpr>(new AssignmentExpr());
-    bool result = MakeTypeDefinition(var_decl->type) &&
+    bool ok = MakeTypeDefinition(var_decl->type) &&
                   MakeInitDeclarator(var_decl->type, var_decl->variable_name, assign_expr);
 
     // 次の変数のためにスタック相対アドレスを移動しておく
@@ -283,12 +293,10 @@ bool Parser::MakeVariableDeclaration(std::vector<std::shared_ptr<VariableDeclara
 
     SkipLF();
 
-    if (result)
+    if (ok)
     {
         variables.push_back(var_decl);
     }
-
-    throw "hoge";
 
     while (Token().token != ";")
     {
@@ -316,20 +324,23 @@ bool Parser::MakeVariableDeclaration(std::vector<std::shared_ptr<VariableDeclara
             break; // 多分 false
         }
     }
-    return result;
+
+    DBG_OUT(__FUNCTION__);
+
+    return ok;
 }
 
 // return ステートメント
 bool Parser::MakeReturnStatement(std::shared_ptr<ReturnStatement> &return_statement)
 {
-    PDEBUG(__FUNCTION__);
+    DBG_IN(__FUNCTION__);
 
-    if (compiler_state->iter->token != "return")
+    if (Token().token != "return")
     {
         return false;
     }
 
-    ++(compiler_state->iter);
+    FwdCursor();
     SkipLF();
 
     std::shared_ptr<PrimaryExpr> primary_expr;
@@ -342,18 +353,18 @@ bool Parser::MakeReturnStatement(std::shared_ptr<ReturnStatement> &return_statem
 
     if (!IsEqual(compiler_state->iter, ';'))
     {
-        compiler_state->errors.push_back({compiler_state->module_name, compiler_state->line_number, "Unexpected syntax : " + compiler_state->iter->token});
+        compiler_state->errors.push_back({compiler_state->module_name, compiler_state->line_number, "Unexpected syntax : " + Token().token});
         return false;
     }
 
-    PDEBUG("out -> " + std::string(__FUNCTION__));
+    DBG_OUT(__FUNCTION__);
 
     return true;
 }
 
 bool Parser::MakeCompoundStatement(CompoundStatement &compound_statement)
 {
-    PDEBUG(__FUNCTION__);
+    DBG_IN(__FUNCTION__);
 
     if (!IsEqual(compiler_state->iter, '{'))
     {
@@ -362,20 +373,22 @@ bool Parser::MakeCompoundStatement(CompoundStatement &compound_statement)
     else
     {
         // multiple exprs
-        ++(compiler_state->iter);
+        FwdCursor();
         SkipLF();
 
         while (true)
         {
-            if (IsEqual(compiler_state->iter, '}'))
+            // end of compound statements
+            if (Token().type == tkCloseBrace)
             {
-                ++(compiler_state->iter);
+                FwdCursor();
                 SkipLF();
                 break;
             }
 
-            if (IsDefinedType(compiler_state->iter->token))
+            if (IsDefinedType(Token().token))
             {
+                ShowTokenInfo();
                 // local variable definition
                 std::vector<std::shared_ptr<VariableDeclaration>> variables;
                 MakeVariableDeclaration(variables) && SkipSemicolon();
@@ -385,32 +398,34 @@ bool Parser::MakeCompoundStatement(CompoundStatement &compound_statement)
             }
             else
             {
+                ShowTokenInfo();
                 std::shared_ptr<ReturnStatement> return_statement;
                 MakeReturnStatement(return_statement) && SkipSemicolon();
                 compound_statement.push_back(return_statement);
                 SkipLF();
-
                 // if (IsEqual(compiler_state->iter, ',')) {
-                //     ++(compiler_state->iter);
+                //     FwdCursor();
                 //     SkipLF();
                 // } else {
-                //     compiler_state->errors.push_back({ compiler_state->module_name, compiler_state->line_number, "Unexpected syntax : " + compiler_state->iter->token });
+                //     compiler_state->errors.push_back({ compiler_state->module_name, compiler_state->line_number, "Unexpected syntax : " + Token().token });
                 //     return false;
                 // }
             }
+
+            IF_N_RUN(3, { PDEBUG("fuga"); throw "hoge";});
         };
     }
 
     SkipLF();
 
-    PDEBUG("out -> " + std::string(__FUNCTION__));
+    DBG_OUT(__FUNCTION__);
 
     return true;
 }
 
 bool Parser::MakeFunctionDefinition(std::shared_ptr<Function> &function)
 {
-    PDEBUG(__FUNCTION__);
+    DBG_IN(__FUNCTION__);
 
     function = std::shared_ptr<Function>(new Function());
 
@@ -419,22 +434,28 @@ bool Parser::MakeFunctionDefinition(std::shared_ptr<Function> &function)
                   MakeArgumentDeclarationList(function->arguments);
 
     compiler_state->scope += "::" + function->function_name;
+
     result &= MakeCompoundStatement(function->statements);
 
-    PDEBUG("out -> " + std::string(__FUNCTION__));
+    DBG_OUT(__FUNCTION__);
 
     return result;
 }
 
 bool Parser::MakePrimaryExpr(std::shared_ptr<PrimaryExpr>& primary_expr)
 {
-    PDEBUG(__FUNCTION__);
-
+    DBG_IN(__FUNCTION__);
+    PDEBUG(Token().token);
     std::shared_ptr<Node> expr(new Node);
-    if ((compiler_state->iter->token).compare("\"") == 0)
+    if (Token().type == tkWord) {
+        if (compiler_state->IsDefinedVar(compiler_state->scope + "::" + Token().token))
+        {
+        }
+    }
+    else if (Token().type == tkDoubleQuote)
     {
         // string literal
-        ++(compiler_state->iter);
+        FwdCursor();
 
         primary_expr = std::shared_ptr<PrimaryExpr>(new PrimaryExpr());
 
@@ -445,17 +466,17 @@ bool Parser::MakePrimaryExpr(std::shared_ptr<PrimaryExpr>& primary_expr)
             auto temp = std::dynamic_pointer_cast<LiteralBase>(string_literal);
             primary_expr = std::shared_ptr<PrimaryExpr>(
                 new PrimaryExpr(temp));
-            PDEBUG("out -> " + std::string(__FUNCTION__));
+            DBG_OUT(__FUNCTION__);
             return true;
         }
     }
-    else
+    else if (Token().type == tkDecimal)
     {
         // number literal
         bool is_numeric;
         try
         {
-            std::stoi(compiler_state->iter->token);
+            std::stoi(Token().token);
             is_numeric = true;
         }
         catch (const std::invalid_argument &e)
@@ -475,60 +496,60 @@ bool Parser::MakePrimaryExpr(std::shared_ptr<PrimaryExpr>& primary_expr)
             {
                 auto temp = std::dynamic_pointer_cast<LiteralBase>(integer_literal);
                 primary_expr = std::shared_ptr<PrimaryExpr>(new PrimaryExpr(temp));
-                PDEBUG("out -> " + std::string(__FUNCTION__));
+                DBG_OUT(__FUNCTION__);
                 return true;
             }
         }
     }
 
     // error
-    compiler_state->errors.push_back({compiler_state->module_name, compiler_state->line_number, "Unexpected expr : " + compiler_state->iter->token});
+    compiler_state->errors.push_back({compiler_state->module_name, compiler_state->line_number, "Unexpected expr : " + Token().token});
     return false;
 }
 
 bool Parser::MakeStringLiteral(std::shared_ptr<StringLiteral> &string_literal)
 {
-    PDEBUG(__FUNCTION__);
-    std::string strings = compiler_state->iter->token;
-    ++(compiler_state->iter);
+    DBG_IN(__FUNCTION__);
+    std::string strings = Token().token;
+    FwdCursor();
 
-    if (!(compiler_state->iter->token).compare("\""))
+    if (!(Token().token).compare("\""))
     {
-        compiler_state->errors.push_back({compiler_state->module_name, compiler_state->line_number, "The end of '\"' is not found : " + compiler_state->iter->token});
-        ++(compiler_state->iter);
+        compiler_state->errors.push_back({compiler_state->module_name, compiler_state->line_number, "The end of '\"' is not found : " + Token().token});
+        FwdCursor();
         return false;
     }
 
     string_literal = std::shared_ptr<StringLiteral>(new StringLiteral(strings));
 
-    ++(compiler_state->iter);
-    PDEBUG("out -> " + std::string(__FUNCTION__));
+    FwdCursor();
+    DBG_OUT(__FUNCTION__);
     return true;
 }
 
 bool Parser::MakeIntegerLiteral(std::shared_ptr<IntegerLiteral> &integer_literal)
 {
-    PDEBUG(__FUNCTION__);
+    DBG_IN(__FUNCTION__);
 
     try
     {
-        std::stoi(compiler_state->iter->token);
+        std::stoi(Token().token);
     }
     catch (const std::invalid_argument &e)
     {
-        compiler_state->errors.push_back({compiler_state->module_name, compiler_state->line_number, "invalid argument: " + compiler_state->iter->token});
+        compiler_state->errors.push_back({compiler_state->module_name, compiler_state->line_number, "invalid argument: " + Token().token});
         return false;
     }
     catch (const std::out_of_range &e)
     {
-        compiler_state->errors.push_back({compiler_state->module_name, compiler_state->line_number, "out of range: " + compiler_state->iter->token});
+        compiler_state->errors.push_back({compiler_state->module_name, compiler_state->line_number, "out of range: " + Token().token});
         return false;
     }
 
-    integer_literal = std::shared_ptr<IntegerLiteral>(new IntegerLiteral(compiler_state->iter->token));
+    integer_literal = std::shared_ptr<IntegerLiteral>(new IntegerLiteral(Token().token));
 
-    ++(compiler_state->iter);
-    PDEBUG("out -> " + std::string(__FUNCTION__));
+    FwdCursor();
+    DBG_OUT(__FUNCTION__);
     return true;
 }
 
