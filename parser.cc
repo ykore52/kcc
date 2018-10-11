@@ -99,7 +99,7 @@ bool Parser::MakeTypeDefinition(std::shared_ptr<TypeInfo> &type)
     compiler_state->iter++;
     if (compiler_state->type_store.find(type_name) == std::end(compiler_state->type_store))
     {
-        compiler_state->errors.push_back({compiler_state->module_name, compiler_state->line_number, "Type name is not defined"});
+        compiler_state->AddCompileError("Type name is not defined");
         return false;
     }
 
@@ -127,10 +127,7 @@ bool Parser::MakeArgumentDeclList(ArgumentList &arguments)
 
     if (!IsEqual(compiler_state->iter, '('))
     {
-        compiler_state->errors.push_back(
-            {compiler_state->module_name,
-             compiler_state->line_number,
-             "Unexpected syntax : " + GetToken().token});
+        compiler_state->AddCompileError("Unexpected syntax : " + GetToken().token);
         return false;
     }
 
@@ -163,7 +160,7 @@ bool Parser::MakeFunctionIdentifier(std::string &function_identifier)
 
     if (compiler_state->identifier_store.find(uid) != std::end(compiler_state->identifier_store))
     {
-        compiler_state->errors.push_back({compiler_state->module_name, compiler_state->line_number, "Function : " + identifier + " is already defined"});
+        compiler_state->AddCompileError("Function : " + identifier + " is already defined");
         return false;
     }
 
@@ -179,19 +176,19 @@ bool Parser::MakeFunctionIdentifier(std::string &function_identifier)
 }
 
 // 変数名(識別子)
-bool Parser::MakeVariableIdentifier(const std::string &scope, std::string &var_name)
+bool Parser::MakeVariableIdentifier(std::string &var_name)
 {
     DBG_IN(__FUNCTION__);
     ShowTokenInfo();
 
     auto identifier = GetToken().token;
 
-    auto uid = scope + "::" + identifier;
+    auto uid = compiler_state->scope + "::" + identifier;
     compiler_state->iter++;
 
     if (IsDefinedVar(uid))
     {
-        compiler_state->errors.push_back({scope + "::" + compiler_state->module_name, compiler_state->line_number, "Identifier : " + identifier + " is already defined"});
+        compiler_state->AddCompileError("Identifier : " + identifier + " is already defined");
         return false;
     }
 
@@ -220,11 +217,7 @@ bool Parser::MakeAssignmentExpr(std::shared_ptr<AssignmentExpr> &assign_expr)
         bool result = MakePrimaryExpr(prim_expr);
 
         if (GetToken().type != tkCloseParent) {
-            compiler_state->errors.push_back({
-                compiler_state->scope + "::" + compiler_state->module_name,
-                compiler_state->line_number,
-                "Unexpected token : " + GetToken().token
-            });
+            compiler_state->AddCompileError("Unexpected token : " + GetToken().token);
         }
         FwdCursor();
     }
@@ -246,10 +239,7 @@ bool Parser::MakeInitDecl(const std::shared_ptr<TypeInfo> &type, std::string &va
     bool result = MakeVariableIdentifier(scope, var_name);
     if (!result)
     {
-        compiler_state->errors.push_back(
-            {scope + "::" + compiler_state->module_name,
-             compiler_state->line_number,
-             "Identifier : " + var_name + " is already defined"});
+        compiler_state->AddCompileError("Identifier : " + var_name + " is already defined");
     }
     SkipLF();
 
@@ -261,10 +251,7 @@ bool Parser::MakeInitDecl(const std::shared_ptr<TypeInfo> &type, std::string &va
     // 初期化式が付与されている場合は後に続く
     if (GetToken().token != TKN_EQUAL)
     {
-        compiler_state->errors.push_back(
-            {scope + "::" + compiler_state->module_name,
-             compiler_state->line_number,
-             "Unexpected token :" + GetToken().token});
+        compiler_state->compiler_state->AddCompileError("Unexpected token :" + GetToken().token);
     }
 
     SkipLF(); // skip "=" token
@@ -367,7 +354,7 @@ bool Parser::MakeReturnStmt(std::shared_ptr<ReturnStmt> &return_stmt)
 
     if (!IsEqual(compiler_state->iter, ';'))
     {
-        compiler_state->errors.push_back({compiler_state->module_name, compiler_state->line_number, "Unexpected syntax : " + GetToken().token});
+        compiler_state->AddCompileError("Unexpected syntax : " + GetToken().token);
         return false;
     }
 
@@ -376,10 +363,17 @@ bool Parser::MakeReturnStmt(std::shared_ptr<ReturnStmt> &return_stmt)
     return true;
 }
 
-bool MakeExprStmt(std::shared_ptr<ExprBase> &expr)
+bool Parser::MakeExprStmt(std::shared_ptr<ExprStmt> &stmt)
 {
     DBG_IN(__FUNCTION__);
     ShowTokenInfo();
+
+    auto operand = GetToken();
+    if (compiler_state->IsDefinedVar(operand.name, )
+    FwdCursor();
+
+    if (GetToken().typ)
+    
     DBG_OUT(__FUNCTION__);
     return true;
 }
@@ -399,6 +393,7 @@ bool Parser::MakeCompoundStmt(CompoundStmt &compound_stmt)
         FwdCursor();
         SkipLF();
 
+        // variable declaration section
         while (true)
         {
             ShowTokenInfo();
@@ -411,21 +406,44 @@ bool Parser::MakeCompoundStmt(CompoundStmt &compound_stmt)
                 break;
             }
 
-            if (IsDefinedType(GetToken().token))
+            if (!IsDefinedType(GetToken().token))
             {
-                // local variable definition
-                std::vector<std::shared_ptr<VariableDecl>> variables;
-                MakeVariableDecl(variables) && SkipSemicolon();
-                for (auto v : variables)
-                    compound_stmt.push_back(v);
+                break;
+            }
+
+            // local variable definition
+            std::vector<std::shared_ptr<VariableDecl>> variables;
+            MakeVariableDecl(variables) && SkipSemicolon();
+            for (auto v : variables)
+                compound_stmt.push_back(v);
+            SkipLF();
+        }
+
+        // statement section
+        while (true)
+        {
+            ShowTokenInfo();
+
+            // end of compound stmts
+            if (GetToken().type == tkCloseBrace)
+            {
+                FwdCursor();
                 SkipLF();
+                break;
+            }
+
+            // expression statement
+            if (GetToken().type == tkWord)
+            {
+                std::shared_ptr<ExprStmt> stmt;
+                MakeExprStmt(stmt);
+                SkipSemicolon();
+                SkipLF();
+                compound_stmt.push_back(stmt);
                 continue;
             }
 
-            if (GetToken().type == tkWord)
-            {
-            }
-
+            // return statement
             if (GetToken().type == tkReturn)
             {
                 std::shared_ptr<ReturnStmt> return_stmt;
@@ -439,9 +457,10 @@ bool Parser::MakeCompoundStmt(CompoundStmt &compound_stmt)
                 //     compiler_state->errors.push_back({ compiler_state->module_name, compiler_state->line_number, "Unexpected syntax : " + GetToken().token });
                 //     return false;
                 // }
+                continue;
             }
 
-            IF_N_RUN(3, { PDEBUG("fuga"); throw_ln("THROW!!");});
+            // IF_N_RUN(3, { PDEBUG("fuga"); throw_ln("THROW!!");});
         };
     }
 
@@ -534,7 +553,7 @@ bool Parser::MakePrimaryExpr(std::shared_ptr<PrimaryExpr>& primary_expr)
     }
 
     // error
-    compiler_state->errors.push_back({compiler_state->module_name, compiler_state->line_number, "Unexpected expr : " + GetToken().token});
+    compiler_state->AddCompileError("Unexpected expr : " + GetToken().token);
     return false;
 }
 
@@ -548,7 +567,7 @@ bool Parser::MakeStringLiteral(std::shared_ptr<StringLiteral> &string_literal)
 
     if (!(GetToken().token).compare("\""))
     {
-        compiler_state->errors.push_back({compiler_state->module_name, compiler_state->line_number, "The end of '\"' is not found : " + GetToken().token});
+        compiler_state->AddCompileError("The end of '\"' is not found : " + GetToken().token);
         FwdCursor();
         return false;
     }
@@ -571,12 +590,12 @@ bool Parser::MakeIntegerLiteral(std::shared_ptr<IntegerLiteral> &integer_literal
     }
     catch (const std::invalid_argument &e)
     {
-        compiler_state->errors.push_back({compiler_state->module_name, compiler_state->line_number, "invalid argument: " + GetToken().token});
+        compiler_state->AddCompileError("invalid argument: " + GetToken().token);
         return false;
     }
     catch (const std::out_of_range &e)
     {
-        compiler_state->errors.push_back({compiler_state->module_name, compiler_state->line_number, "out of range: " + GetToken().token});
+        compiler_state->AddCompileError("out of range: " + GetToken().token);
         return false;
     }
 

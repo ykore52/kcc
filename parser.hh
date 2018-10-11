@@ -37,9 +37,12 @@ enum NodeType
     kFuncParam,
     kStmtReturn,
 
+    kStmtExpr,
     kPrimaryExpr,
     kBinaryExpr,
-    kAssignmentExpr
+    kAssignmentExpr,
+
+    kNull
 };
 
 enum OperatorType
@@ -280,6 +283,13 @@ struct DeclAndStmt : public ASTNode
     virtual void Stdout() {}
 };
 
+struct ExprStmt : public DeclAndStmt
+{
+    ExprStmt(NodeType t) : DeclAndStmt(kStmtExpr) {}
+
+    std::shared_ptr<ExprBase> expr;
+};
+
 struct VariableDecl : public DeclAndStmt
 {
     VariableDecl() : DeclAndStmt(kVariableDecl) {}
@@ -441,19 +451,47 @@ struct CompilerState
     {
         return identifier_store.find(univ_name) != std::end(identifier_store);
     }
+    bool IsDefinedVar(const std::string &id, const std::string &scope)
+    {
+        auto uid = scope + "::" + id;
+        return identifier_store.find(uid) != std::end(identifier_store);
+    }
 
     // 識別子ストアへの登録
     //   true  : 登録成功
     //   false : 登録失敗
     bool RegistID(const std::string &id, const std::string &scope)
     {
-        auto uid = module_name + "::" + scope + "::" + id;
+        auto uid = scope + "::" + id;
         if (IsDefinedVar(uid))
             return false;
 
-        identifier_store[uid] = IdentifierInfo{id, module_name + "::" + scope};
+        identifier_store[uid] = IdentifierInfo{id, scope};
 
         return true;
+    }
+
+    // 識別子ストアから取得
+    IdentifierInfo GetID(const std::string &id)
+    {
+        auto uid = scope + "::" + id;
+        return identifier_store[uid];
+    }
+    
+    IdentifierInfo GetID(const std::string &id, const std::string &scope)
+    {
+        auto uid = scope + "::" + id;
+        return identifier_store[uid];
+    }
+
+    // コンパイルエラー登録
+    void AddCompileError(std::string msg)
+    {
+        errors.push_back({
+                scope,
+                line_number,
+                msg
+        });
     }
 
     // module name
@@ -518,10 +556,10 @@ class Parser
     void SkipLF();
 
     bool MakeVariableDecl(std::vector<std::shared_ptr<VariableDecl>> &variables);
-    bool MakeVariableIdentifier(const std::string &scope, std::string &var_name);
+    bool MakeVariableIdentifier(std::string &var_name);
     bool MakeInitDecl(const std::shared_ptr<TypeInfo> &type, std::string &var_name, std::shared_ptr<AssignmentExpr> &assign_expr);
     bool MakeAssignmentExpr(std::shared_ptr<AssignmentExpr> &assign_expr);
-    bool MakeExprStmt(std::shared_ptr<ExprBase> &expr);
+    bool MakeExprStmt(std::shared_ptr<ExprStmt> &stmt);
 
     bool MakeTypeDefinition(std::shared_ptr<TypeInfo> &type);
     bool MakeArgumentDecl(std::shared_ptr<Argument> &argument);

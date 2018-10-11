@@ -34,10 +34,14 @@ function utest() {
                 echo "SUCCESS (${cnt}/${num_test}) - ${SRC}"
             else
                 echo "FAILED to run (${cnt}/${num_test}) - ${SRC}"
+                echo "Abort"
+                break
             fi
 
         else
             echo "FAILED (${cnt}/${num_test}) - ${SRC}"
+            echo "Abort"
+            break
         fi
 
         cnt=$(expr ${cnt} + 1)
