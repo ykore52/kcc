@@ -19,23 +19,23 @@ namespace kcc
 enum NodeType
 {
     kProgram,
-    kDeclaration,
+    kDecl,
     kObjectType,
 
     kIntegerLiteral,
     kStringLiteral,
     kDeclRefExpr,
 
-    kVariableDeclaration,
+    kVariableDecl,
 
     kFuncDefinition,
     kFuncStorageClassSpecifier, // auto, register, static, extern, typedef,
                                 // __decpspec(ms-specific)
     kFuncIdentifier,
-    kFuncCompoundStatement,
+    kFuncCompoundStmt,
     kFuncParamList,
     kFuncParam,
-    kStatementReturn,
+    kStmtReturn,
 
     kPrimaryExpr,
     kBinaryExpr,
@@ -273,17 +273,17 @@ struct PrimaryExpr : public ExprBase
 };
 
 // ------------------------------------------------
-struct DeclarationAndStatement : public ASTNode
+struct DeclAndStmt : public ASTNode
 {
-    DeclarationAndStatement(NodeType t) : ASTNode(t) {}
-    virtual std::string Assemble(AssemblyConfig &conf) { return "DeclarationAndStatement"; }
+    DeclAndStmt(NodeType t) : ASTNode(t) {}
+    virtual std::string Assemble(AssemblyConfig &conf) { return "DeclAndStmt"; }
     virtual void Stdout() {}
 };
 
-struct VariableDeclaration : public DeclarationAndStatement
+struct VariableDecl : public DeclAndStmt
 {
-    VariableDeclaration() : DeclarationAndStatement(kVariableDeclaration) {}
-    VariableDeclaration(int stack_rel_addr) : stack_rel_addr(stack_rel_addr), DeclarationAndStatement(kVariableDeclaration) {}
+    VariableDecl() : DeclAndStmt(kVariableDecl) {}
+    VariableDecl(int stack_rel_addr) : stack_rel_addr(stack_rel_addr), DeclAndStmt(kVariableDecl) {}
 
     std::shared_ptr<TypeInfo> type;
     std::string variable_name;
@@ -298,11 +298,11 @@ struct VariableDeclaration : public DeclarationAndStatement
     }
 };
 
-struct ReturnStatement : public DeclarationAndStatement
+struct ReturnStmt : public DeclAndStmt
 {
-    ReturnStatement() : DeclarationAndStatement(kStatementReturn) {}
-    ReturnStatement(const std::shared_ptr<ExprBase> &e)
-        : DeclarationAndStatement(kStatementReturn), return_expr(e) {}
+    ReturnStmt() : DeclAndStmt(kStmtReturn) {}
+    ReturnStmt(const std::shared_ptr<ExprBase> &e)
+        : DeclAndStmt(kStmtReturn), return_expr(e) {}
 
     virtual std::string Assemble(AssemblyConfig &conf) override
     {
@@ -315,13 +315,13 @@ struct ReturnStatement : public DeclarationAndStatement
     std::shared_ptr<ExprBase> return_expr;
 };
 
-struct IfStatement : public DeclarationAndStatement
+struct IfStmt : public DeclAndStmt
 {
 };
-struct ForStatement : public DeclarationAndStatement
+struct ForStmt : public DeclAndStmt
 {
 };
-struct WhileStatement : public DeclarationAndStatement
+struct WhileStmt : public DeclAndStmt
 {
 };
 
@@ -337,23 +337,23 @@ struct Argument : public ASTNode
 };
 
 typedef std::vector<std::shared_ptr<Argument>> ArgumentList;
-typedef std::vector<std::shared_ptr<DeclarationAndStatement>> CompoundStatement;
+typedef std::vector<std::shared_ptr<DeclAndStmt>> CompoundStmt;
 
-// ExternalDeclaration contains Function decl and Global Variable decl;
-struct ExternalDeclaration : public ASTNode
+// ExternalDecl contains Function decl and Global Variable decl;
+struct ExternalDecl : public ASTNode
 {
-    ExternalDeclaration(NodeType t) : ASTNode(t) {}
-    virtual std::string Assemble(AssemblyConfig &conf) { return "DeclaratExternalDeclarationionAndStatement"; }
+    ExternalDecl(NodeType t) : ASTNode(t) {}
+    virtual std::string Assemble(AssemblyConfig &conf) { return "DeclaratExternalDeclionAndStmt"; }
     virtual void Stdout() {}
 };
 
-struct Function : public ExternalDeclaration
+struct Function : public ExternalDecl
 {
-    Function() : ExternalDeclaration(kFuncDefinition) {}
+    Function() : ExternalDecl(kFuncDefinition) {}
     std::shared_ptr<TypeInfo> type;
     std::string function_name;
     ArgumentList arguments;
-    CompoundStatement statements;
+    CompoundStmt statements;
 
     std::string Assemble(AssemblyConfig &conf) override
     {
@@ -396,7 +396,7 @@ struct Function : public ExternalDeclaration
 struct Program : public ASTNode
 {
     Program() : ASTNode(kProgram) {}
-    std::vector<std::shared_ptr<ExternalDeclaration>> decl;
+    std::vector<std::shared_ptr<ExternalDecl>> decl;
 
     std::string Assemble(AssemblyConfig &conf) override
     {
@@ -517,19 +517,19 @@ class Parser
     bool SkipSemicolon();
     void SkipLF();
 
-    bool MakeVariableDeclaration(std::vector<std::shared_ptr<VariableDeclaration>> &variables);
+    bool MakeVariableDecl(std::vector<std::shared_ptr<VariableDecl>> &variables);
     bool MakeVariableIdentifier(const std::string &scope, std::string &var_name);
-    bool MakeInitDeclarator(const std::shared_ptr<TypeInfo> &type, std::string &var_name, std::shared_ptr<AssignmentExpr> &assign_expr);
+    bool MakeInitDecl(const std::shared_ptr<TypeInfo> &type, std::string &var_name, std::shared_ptr<AssignmentExpr> &assign_expr);
     bool MakeAssignmentExpr(std::shared_ptr<AssignmentExpr> &assign_expr);
     bool MakeExpr(std::shared_ptr<ExprBase> &expr);
 
     bool MakeTypeDefinition(std::shared_ptr<TypeInfo> &type);
-    bool MakeArgumentDeclaration(std::shared_ptr<Argument> &argument);
-    bool MakeArgumentDeclarationList(ArgumentList &arguments);
+    bool MakeArgumentDecl(std::shared_ptr<Argument> &argument);
+    bool MakeArgumentDeclList(ArgumentList &arguments);
     bool MakeFunctionIdentifier(std::string &function_identifier);
 
-    bool MakeReturnStatement(std::shared_ptr<ReturnStatement> &return_statement);
-    bool MakeCompoundStatement(CompoundStatement &compound_statement);
+    bool MakeReturnStmt(std::shared_ptr<ReturnStmt> &return_statement);
+    bool MakeCompoundStmt(CompoundStmt &compound_statement);
     bool MakeFunctionDefinition(std::shared_ptr<Function> &function);
 
     bool MakeBinaryExpr(std::shared_ptr<BinaryExpr> &primary_expr);
@@ -540,7 +540,7 @@ class Parser
 
     bool MakeProgram(std::shared_ptr<Program> &program);
 
-    inline const Token Token(int n = 0)
+    inline const kcc::Token GetToken(int n = 0)
     {
         if (compiler_state->iter + n >= std::end(compiler_state->buf))
         {
@@ -570,8 +570,8 @@ class Parser
     inline void ShowTokenInfo()
     {
         std::cout << "-- TokenInfo ----" << std::endl;
-        std::cout << " token :" << Token().token << std::endl;
-        std::cout << " type  :" << Token().type << std::endl;
+        std::cout << " token :" << GetToken().token << std::endl;
+        std::cout << " type  :" << GetToken().type << std::endl;
     }
 
     std::shared_ptr<CompilerState> compiler_state;

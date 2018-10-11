@@ -2,6 +2,7 @@
 #define UTIL_HH
 
 #include <iostream>
+#include <sstream>
 #include <vector>
 
 static int num_fn_call = 0;

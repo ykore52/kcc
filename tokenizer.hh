@@ -18,7 +18,7 @@ enum TokenType
 {
     tkDecimal,
     tkHexDecimal,
-    tkFloat,
+    tkFloatNumber,
     tkWord,
 
     // 記号
@@ -40,7 +40,6 @@ enum TokenType
     tkNot,         // !
     tkQuote,       // '
     tkDoubleQuote, // "
-
 
     // 予約語
     tkAuto,
@@ -454,8 +453,71 @@ class Tokenizer
 
     TokenType GetTokenType(std::string &str)
     {
-        if (str == "auto") return tkAuto;
-        
+        if (str == "auto")
+            return tkAuto;
+        if (str == "break")
+            return tkBreak;
+        if (str == "case")
+            return tkCase;
+        if (str == "char")
+            return tkChar;
+        if (str == "const")
+            return tkConst;
+        if (str == "continue")
+            return tkContinue;
+        if (str == "default")
+            return tkDefault;
+        if (str == "do")
+            return tkDo;
+        if (str == "double")
+            return tkDouble;
+        if (str == "else")
+            return tkElse;
+        if (str == "enum")
+            return tkEnum;
+        if (str == "extern")
+            return tkExtern;
+        if (str == "float")
+            return tkFloat;
+        if (str == "for")
+            return tkFor;
+        if (str == "goto")
+            return tkGoto;
+        if (str == "if")
+            return tkIf;
+        if (str == "int")
+            return tkInt;
+        if (str == "long")
+            return tkLong;
+        if (str == "register")
+            return tkRegister;
+        if (str == "return")
+            return tkReturn;
+        if (str == "short")
+            return tkShort;
+        if (str == "signed")
+            return tkSigned;
+        if (str == "sizeof")
+            return tkSizeof;
+        if (str == "static")
+            return tkStatic;
+        if (str == "struct")
+            return tkStruct;
+        if (str == "switch")
+            return tkSwitch;
+        if (str == "typedef")
+            return tkTypedef;
+        if (str == "union")
+            return tkUnion;
+        if (str == "unsigned")
+            return tkUnsigned;
+        if (str == "void")
+            return tkVoid;
+        if (str == "volatile")
+            return tkVolatile;
+        if (str == "while")
+            return tkWhile;
+        return tkWord;
     }
 
     std::vector<char> buffer_;
@@ -464,5 +526,5 @@ class Tokenizer
     int pos_;
 };
 
-} // namespace kcc2
+} // namespace kcc
 #endif

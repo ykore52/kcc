@@ -16,7 +16,8 @@ class Assemble_Assembly_Test
 
     ~Assemble_Assembly_Test() { std::cout << "=== Finish tests ===" << std::endl; }
 
-    void Run() {
+    void Run()
+    {
         Assemble_BasicTest();
         Assemble_Var_Test();
     }
@@ -40,7 +41,7 @@ _main:
         std::vector<kcc::Token> tokens;
         Tokenizer t;
         t.Tokenize(inp, &tokens);
-            
+
         std::shared_ptr<CompilerState> c(new CompilerState);
         Parser p(c);
         c->buf = tokens;
@@ -54,7 +55,6 @@ _main:
         // std::cout << assembly << std::endl;
 
         TEST_EQUAL(answer, assembly);
-
     }
 
     void Assemble_Var_Test()
@@ -76,7 +76,7 @@ _main:
         std::vector<kcc::Token> tokens;
         Tokenizer t;
         t.Tokenize(inp, &tokens);
-            
+
         std::shared_ptr<CompilerState> c(new CompilerState);
         Parser p(c);
         c->buf = tokens;
@@ -90,7 +90,6 @@ _main:
         // std::cout << assembly << std::endl;
 
         TEST_EQUAL(answer, assembly);
-
     }
 
     std::vector<char> PrepareInput(const char *input)
@@ -107,7 +106,14 @@ _main:
 
 int main()
 {
-    kcc::test::Assemble_Assembly_Test t;
-    t.Run();
-    Testing::DisplaySummary();
+    try
+    {
+        kcc::test::Assemble_Assembly_Test t;
+        t.Run();
+        Testing::DisplaySummary();
+    }
+    catch (Exception e)
+    {
+        std::cerr << e.what() << std::endl;
+    }
 }
