@@ -353,7 +353,7 @@ struct Function : public ExternalDecl
     std::shared_ptr<TypeInfo> type;
     std::string function_name;
     ArgumentList arguments;
-    CompoundStmt statements;
+    CompoundStmt stmts;
 
     std::string Assemble(AssemblyConfig &conf) override
     {
@@ -366,7 +366,7 @@ struct Function : public ExternalDecl
         code += conf.asm_.Asm("push", {"rbp"});
         code += conf.asm_.Asm("mov", {"rbp", "rsp"});
 
-        for (auto s : statements)
+        for (auto s : stmts)
         {
             code += s->Assemble(conf);
         }
@@ -386,7 +386,7 @@ struct Function : public ExternalDecl
         }
         std::cout << ")" << std::endl;
 
-        for (auto s : statements)
+        for (auto s : stmts)
         {
             s->Stdout();
         }
@@ -521,15 +521,15 @@ class Parser
     bool MakeVariableIdentifier(const std::string &scope, std::string &var_name);
     bool MakeInitDecl(const std::shared_ptr<TypeInfo> &type, std::string &var_name, std::shared_ptr<AssignmentExpr> &assign_expr);
     bool MakeAssignmentExpr(std::shared_ptr<AssignmentExpr> &assign_expr);
-    bool MakeExpr(std::shared_ptr<ExprBase> &expr);
+    bool MakeExprStmt(std::shared_ptr<ExprBase> &expr);
 
     bool MakeTypeDefinition(std::shared_ptr<TypeInfo> &type);
     bool MakeArgumentDecl(std::shared_ptr<Argument> &argument);
     bool MakeArgumentDeclList(ArgumentList &arguments);
     bool MakeFunctionIdentifier(std::string &function_identifier);
 
-    bool MakeReturnStmt(std::shared_ptr<ReturnStmt> &return_statement);
-    bool MakeCompoundStmt(CompoundStmt &compound_statement);
+    bool MakeReturnStmt(std::shared_ptr<ReturnStmt> &return_stmt);
+    bool MakeCompoundStmt(CompoundStmt &compound_stmt);
     bool MakeFunctionDefinition(std::shared_ptr<Function> &function);
 
     bool MakeBinaryExpr(std::shared_ptr<BinaryExpr> &primary_expr);

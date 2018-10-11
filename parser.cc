@@ -344,7 +344,7 @@ bool Parser::MakeVariableDecl(std::vector<std::shared_ptr<VariableDecl>> &variab
 }
 
 // return ステートメント
-bool Parser::MakeReturnStmt(std::shared_ptr<ReturnStmt> &return_statement)
+bool Parser::MakeReturnStmt(std::shared_ptr<ReturnStmt> &return_stmt)
 {
     DBG_IN(__FUNCTION__);
     ShowTokenInfo();
@@ -360,8 +360,8 @@ bool Parser::MakeReturnStmt(std::shared_ptr<ReturnStmt> &return_statement)
     std::shared_ptr<PrimaryExpr> primary_expr;
     bool result = MakePrimaryExpr(primary_expr);
 
-    return_statement = std::shared_ptr<ReturnStmt>(new ReturnStmt());
-    return_statement->return_expr = std::static_pointer_cast<ExprBase>(primary_expr);
+    return_stmt = std::shared_ptr<ReturnStmt>(new ReturnStmt());
+    return_stmt->return_expr = std::static_pointer_cast<ExprBase>(primary_expr);
 
     SkipLF();
 
@@ -376,7 +376,15 @@ bool Parser::MakeReturnStmt(std::shared_ptr<ReturnStmt> &return_statement)
     return true;
 }
 
-bool Parser::MakeCompoundStmt(CompoundStmt &compound_statement)
+bool MakeExprStmt(std::shared_ptr<ExprBase> &expr)
+{
+    DBG_IN(__FUNCTION__);
+    ShowTokenInfo();
+    DBG_OUT(__FUNCTION__);
+    return true;
+}
+
+bool Parser::MakeCompoundStmt(CompoundStmt &compound_stmt)
 {
     DBG_IN(__FUNCTION__);
     ShowTokenInfo();
@@ -395,7 +403,7 @@ bool Parser::MakeCompoundStmt(CompoundStmt &compound_statement)
         {
             ShowTokenInfo();
 
-            // end of compound statements
+            // end of compound stmts
             if (GetToken().type == tkCloseBrace)
             {
                 FwdCursor();
@@ -409,7 +417,7 @@ bool Parser::MakeCompoundStmt(CompoundStmt &compound_statement)
                 std::vector<std::shared_ptr<VariableDecl>> variables;
                 MakeVariableDecl(variables) && SkipSemicolon();
                 for (auto v : variables)
-                    compound_statement.push_back(v);
+                    compound_stmt.push_back(v);
                 SkipLF();
                 continue;
             }
@@ -420,9 +428,9 @@ bool Parser::MakeCompoundStmt(CompoundStmt &compound_statement)
 
             if (GetToken().type == tkReturn)
             {
-                std::shared_ptr<ReturnStmt> return_statement;
-                MakeReturnStmt(return_statement) && SkipSemicolon();
-                compound_statement.push_back(return_statement);
+                std::shared_ptr<ReturnStmt> return_stmt;
+                MakeReturnStmt(return_stmt) && SkipSemicolon();
+                compound_stmt.push_back(return_stmt);
                 SkipLF();
                 // if (IsEqual(compiler_state->iter, ',')) {
                 //     FwdCursor();
@@ -457,7 +465,7 @@ bool Parser::MakeFunctionDefinition(std::shared_ptr<Function> &function)
 
     compiler_state->scope += "::" + function->function_name;
 
-    result &= MakeCompoundStmt(function->statements);
+    result &= MakeCompoundStmt(function->stmts);
 
     DBG_OUT(__FUNCTION__);
 
