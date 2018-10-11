@@ -54,8 +54,13 @@ bool Parser::IsDefinedType(const std::string &str)
     return compiler_state->type_store.find(str) != std::end(compiler_state->type_store);
 }
 
-bool Parser::IsDefinedVar(const std::string &uid)
+bool Parser::IsDefinedVar(const std::string &var)
 {
+    DBG_IN(__FUNCTION__);
+    PDEBUG(compiler_state->identifier_store.ToString());
+    DBG_OUT(__FUNCTION__);
+    auto uid = compiler_state->scope + "::" + var;
+    PDEBUG(uid);
     return compiler_state->identifier_store.find(uid) != std::end(compiler_state->identifier_store);
 }
 
@@ -197,8 +202,8 @@ bool Parser::MakeVariableIdentifier(std::string &var_name)
     var_name = identifier;
 
     PDEBUG("univ name is : " + uid);
-    compiler_state->RegistID(identifier, scope);
-    // compiler_state->identifier_store[uid] = IdentifierInfo{identifier, scope + "::" + compiler_state->module_name};
+    compiler_state->RegistID(identifier);
+
     DBG_OUT(__FUNCTION__);
 
     return true;
@@ -220,10 +225,12 @@ bool Parser::MakeAssignmentExpr(std::shared_ptr<AssignmentExpr> &assign_expr)
             compiler_state->AddCompileError("Unexpected token : " + GetToken().token);
         }
         FwdCursor();
+        return true;
     }
-    // else if (GetToken()) {
-        
-    // }
+
+    if (GetToken().type == tkDecimal) {
+
+    }
 
     DBG_OUT(__FUNCTION__);
     return true;
@@ -235,23 +242,22 @@ bool Parser::MakeInitDecl(const std::shared_ptr<TypeInfo> &type, std::string &va
     DBG_IN(__FUNCTION__);
     ShowTokenInfo();
 
-    std::string scope = compiler_state->scope;
-    bool result = MakeVariableIdentifier(scope, var_name);
+    bool result = MakeVariableIdentifier(var_name);
     if (!result)
     {
         compiler_state->AddCompileError("Identifier : " + var_name + " is already defined");
     }
     SkipLF();
 
-    if (GetToken().token == TKN_SEMICOLON)
+    if (GetToken().type == tkSemicolon)
     {
         return true;
     }
 
     // 初期化式が付与されている場合は後に続く
-    if (GetToken().token != TKN_EQUAL)
+    if (GetToken().type != tkEqual)
     {
-        compiler_state->compiler_state->AddCompileError("Unexpected token :" + GetToken().token);
+        compiler_state->AddCompileError("Unexpected token :" + GetToken().token);
     }
 
     SkipLF(); // skip "=" token
@@ -367,12 +373,54 @@ bool Parser::MakeExprStmt(std::shared_ptr<ExprStmt> &stmt)
 {
     DBG_IN(__FUNCTION__);
     ShowTokenInfo();
+    stmt = std::shared_ptr<ExprStmt>(new ExprStmt(NodeType::kExprStmt));
+    if (GetToken().type == tkWord)
+    {
+        // function call returning void expr
+        // increment or decrement expr
+        // assignment expr
 
-    auto operand = GetToken();
-    if (compiler_state->IsDefinedVar(operand.name, )
-    FwdCursor();
+        // left operand (or mono operand)
+        auto op_left = GetToken();
+        SkipLF();
+        FwdCursor();
 
-    if (GetToken().typ)
+        // TODO: parse arrow operator (member of struct)
+
+        // assignment expr
+        if (GetToken().type == tkEqual)
+        {
+            PDEBUG(op_left.ToString());
+            if (!compiler_state->IsDefinedVar(op_left.token))
+            {
+                compiler_state->AddCompileError("Undefined variable : " + op_left.token);
+                return false;
+            }
+
+            std::shared_ptr<AssignmentExpr> assign(new AssignmentExpr);
+
+            // type of destination variable
+            auto type = compiler_state->type_store[op_left.type];
+
+            auto decl = std::shared_ptr<DeclInfo>(new DeclInfo(type, op_left.token));
+            assign->destination = std::shared_ptr<DeclRefExpr>(
+                new DeclRefExpr(
+                    decl
+                )
+            );
+            
+            stmt->expr = std::dynamic_pointer_cast<AssignmentExpr>(assign);
+            
+            MakeAssignmentExpr(assign);
+    ShowTokenInfo();
+    exit(0);
+
+            SkipLF();
+            FwdCursor();
+        }
+        
+    }
+
     
     DBG_OUT(__FUNCTION__);
     return true;
@@ -440,6 +488,7 @@ bool Parser::MakeCompoundStmt(CompoundStmt &compound_stmt)
                 SkipSemicolon();
                 SkipLF();
                 compound_stmt.push_back(stmt);
+                break;
                 continue;
             }
 

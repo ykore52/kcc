@@ -35,9 +35,9 @@ enum NodeType
     kFuncCompoundStmt,
     kFuncParamList,
     kFuncParam,
-    kStmtReturn,
+    kReturnStmt,
 
-    kStmtExpr,
+    kExprStmt,
     kPrimaryExpr,
     kBinaryExpr,
     kAssignmentExpr,
@@ -285,7 +285,7 @@ struct DeclAndStmt : public ASTNode
 
 struct ExprStmt : public DeclAndStmt
 {
-    ExprStmt(NodeType t) : DeclAndStmt(kStmtExpr) {}
+    ExprStmt(NodeType t) : DeclAndStmt(kExprStmt) {}
 
     std::shared_ptr<ExprBase> expr;
 };
@@ -310,9 +310,9 @@ struct VariableDecl : public DeclAndStmt
 
 struct ReturnStmt : public DeclAndStmt
 {
-    ReturnStmt() : DeclAndStmt(kStmtReturn) {}
+    ReturnStmt() : DeclAndStmt(kReturnStmt) {}
     ReturnStmt(const std::shared_ptr<ExprBase> &e)
-        : DeclAndStmt(kStmtReturn), return_expr(e) {}
+        : DeclAndStmt(kReturnStmt), return_expr(e) {}
 
     virtual std::string Assemble(AssemblyConfig &conf) override
     {
@@ -447,10 +447,12 @@ struct CompilerState
     // 識別子が登録済みであるかを判定
     //   true  : 登録済み
     //   false : 未登録
-    bool IsDefinedVar(const std::string &univ_name)
+    bool IsDefinedVar(const std::string &id)
     {
-        return identifier_store.find(univ_name) != std::end(identifier_store);
+        auto uid = scope + "::" + id;
+        return identifier_store.find(uid) != std::end(identifier_store);
     }
+
     bool IsDefinedVar(const std::string &id, const std::string &scope)
     {
         auto uid = scope + "::" + id;
@@ -460,6 +462,18 @@ struct CompilerState
     // 識別子ストアへの登録
     //   true  : 登録成功
     //   false : 登録失敗
+    bool RegistID(const std::string &id)
+    {
+        auto uid = scope + "::" + id;
+        if (IsDefinedVar(uid))
+            return false;
+
+        identifier_store[uid] = IdentifierInfo{id, scope};
+        PDEBUG("!!!REGIST an identifier : " + uid);
+        PDEBUG(identifier_store.ToString());
+        return true;
+    }
+
     bool RegistID(const std::string &id, const std::string &scope)
     {
         auto uid = scope + "::" + id;
@@ -467,7 +481,8 @@ struct CompilerState
             return false;
 
         identifier_store[uid] = IdentifierInfo{id, scope};
-
+        PDEBUG("!!!REGIST an identifier : " + uid);
+        PDEBUG(identifier_store.ToString());
         return true;
     }
 
@@ -510,7 +525,21 @@ struct CompilerState
     std::map<std::string, TypeInfo> type_store;
 
     // identifier information store
-    std::map<std::string, IdentifierInfo> identifier_store;
+    class IdentifierMap : public std::map<std::string, IdentifierInfo> {
+      public:
+        std::string ToString() {
+            std::string str = "{";
+            bool first = true;
+            for (auto e : *this) {
+                if (!first) str += ", ";
+                first = false;
+                str += "\"" + e.first + "\": \"" + e.second.name + "\"";
+            }
+            str += "}";
+            return str;
+        }
+    };
+    IdentifierMap identifier_store;
 
     // error information
     std::vector<CompileErrorInfo> errors;

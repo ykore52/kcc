@@ -40,6 +40,7 @@ enum TokenType
     tkNot,         // !
     tkQuote,       // '
     tkDoubleQuote, // "
+    tkEqual,        // =
 
     // 予約語
     tkAuto,
@@ -84,6 +85,10 @@ struct Token
     TokenType type;
     int line;
     int pos;
+
+    std::string ToString() {
+        return "struct Token { token=" + token + ", type=" + std::to_string(type) + ", line=" + std::to_string(line) + ", pos=" + std::to_string(pos) + " }";
+    }
 };
 
 static inline bool IsPrintable(char c)
@@ -257,6 +262,9 @@ class Tokenizer
                     break;
                 case '?':
                     tt = tkQuestion;
+                    break;
+                case '=':
+                    tt = tkEqual;
                     break;
                 case '+':
 
