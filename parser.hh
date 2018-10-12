@@ -53,6 +53,13 @@ enum OperatorType
     kDiv,   // /
 };
 
+enum IdentifierType
+{
+    kIdVariable,
+    kIdFunction,
+    kIdStruct
+};
+
 #define TOKEN(name, token) static const char *name = token
 TOKEN(TKN_OPEN_PARENTHESIS, "(");
 TOKEN(TKN_CLOSE_PARENTHESIS, ")");
@@ -92,6 +99,7 @@ struct IdentifierInfo
     std::string name;
     std::string module_name;
     std::string scope;
+    IdentifierType id_type;
     unsigned int address;
 };
 
@@ -447,13 +455,13 @@ struct CompilerState
     // 識別子が登録済みであるかを判定
     //   true  : 登録済み
     //   false : 未登録
-    bool IsDefinedVar(const std::string &id)
+    bool IsDefinedID(const std::string &id)
     {
         auto uid = scope + "::" + id;
         return identifier_store.find(uid) != std::end(identifier_store);
     }
 
-    bool IsDefinedVar(const std::string &id, const std::string &scope)
+    bool IsDefinedID(const std::string &id, const std::string &scope)
     {
         auto uid = scope + "::" + id;
         return identifier_store.find(uid) != std::end(identifier_store);
@@ -465,7 +473,7 @@ struct CompilerState
     bool RegistID(const std::string &id)
     {
         auto uid = scope + "::" + id;
-        if (IsDefinedVar(uid))
+        if (IsDefinedID(uid))
             return false;
 
         identifier_store[uid] = IdentifierInfo{id, scope};
@@ -477,7 +485,7 @@ struct CompilerState
     bool RegistID(const std::string &id, const std::string &scope)
     {
         auto uid = scope + "::" + id;
-        if (IsDefinedVar(uid))
+        if (IsDefinedID(uid))
             return false;
 
         identifier_store[uid] = IdentifierInfo{id, scope};
@@ -497,6 +505,29 @@ struct CompilerState
     {
         auto uid = scope + "::" + id;
         return identifier_store[uid];
+    }
+
+    // スコープ管理
+
+    // 現在のスコープ
+    // @param [in] suffix   true 末尾に "::" をつける. default: false
+    inline std::string CurrentScope(bool suffix = false)
+    {
+        if (suffix)
+            return compiler_state->scope + "::";
+        return compiler_state->scope;
+    }
+
+    void PushScope(std::string label)
+    {
+        scope += "::" + label;
+    }
+
+    // i.e.:  aaa::bbb::ccc -> aaa::bbb
+    void PopScope()
+    {
+        int p = scope.find_last_of("::");
+        scope = scope.substr(0, p);
     }
 
     // コンパイルエラー登録
@@ -579,7 +610,7 @@ class Parser
 
     bool IsEqual(std::vector<kcc::Token>::iterator &it, char c);
     bool IsDefinedType(const std::string &str);
-    bool IsDefinedVar(const std::string &var);
+    bool IsDefinedID(const std::string &var);
 
     bool SkipSemicolon();
     void SkipLF();
@@ -593,7 +624,7 @@ class Parser
     bool MakeTypeDefinition(std::shared_ptr<TypeInfo> &type);
     bool MakeArgumentDecl(std::shared_ptr<Argument> &argument);
     bool MakeArgumentDeclList(ArgumentList &arguments);
-    bool MakeFunctionIdentifier(std::string &function_identifier);
+    bool MakeFunctionIdentifier(std::string &function_identifier, IdentifierInfo &id_info);
 
     bool MakeReturnStmt(std::shared_ptr<ReturnStmt> &return_stmt);
     bool MakeCompoundStmt(CompoundStmt &compound_stmt);

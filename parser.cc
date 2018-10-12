@@ -54,7 +54,7 @@ bool Parser::IsDefinedType(const std::string &str)
     return compiler_state->type_store.find(str) != std::end(compiler_state->type_store);
 }
 
-bool Parser::IsDefinedVar(const std::string &var)
+bool Parser::IsDefinedID(const std::string &var)
 {
     DBG_IN(__FUNCTION__);
     PDEBUG(compiler_state->identifier_store.ToString());
@@ -153,17 +153,20 @@ bool Parser::MakeArgumentDeclList(ArgumentList &arguments)
 }
 
 // 関数宣言
-bool Parser::MakeFunctionIdentifier(std::string &function_identifier)
+// arguments:
+//   id_info : (out) 識別子情報を格納する構造体への参照
+//
+bool Parser::MakeFunctionIdentifier(IdentifierInfo &id_info)
 {
     DBG_IN(__FUNCTION__);
     ShowTokenInfo();
 
     auto identifier = GetToken().token;
 
-    auto uid = compiler_state->module_name + "::" + identifier;
+    auto uid = compiler_state->CurrentScope(true) + identifier;
     compiler_state->iter++;
 
-    if (compiler_state->identifier_store.find(uid) != std::end(compiler_state->identifier_store))
+    if (compiler_state->IsDefinedID(identifier))
     {
         compiler_state->AddCompileError("Function : " + identifier + " is already defined");
         return false;
@@ -171,10 +174,10 @@ bool Parser::MakeFunctionIdentifier(std::string &function_identifier)
 
     SkipLF();
 
-    function_identifier = identifier;
+    id_info.name = identifier;
 
     PDEBUG(uid);
-    compiler_state->identifier_store[uid] = IdentifierInfo{identifier, compiler_state->module_name};
+    compiler_state->RegistID(identifier);
     DBG_OUT(__FUNCTION__);
 
     return true;
@@ -191,7 +194,7 @@ bool Parser::MakeVariableIdentifier(std::string &var_name)
     auto uid = compiler_state->scope + "::" + identifier;
     compiler_state->iter++;
 
-    if (IsDefinedVar(uid))
+    if (IsDefinedID(uid))
     {
         compiler_state->AddCompileError("Identifier : " + identifier + " is already defined");
         return false;
@@ -391,7 +394,7 @@ bool Parser::MakeExprStmt(std::shared_ptr<ExprStmt> &stmt)
         if (GetToken().type == tkEqual)
         {
             PDEBUG(op_left.ToString());
-            if (!compiler_state->IsDefinedVar(op_left.token))
+            if (!compiler_state->IsDefinedID(op_left.token))
             {
                 compiler_state->AddCompileError("Undefined variable : " + op_left.token);
                 return false;
@@ -399,8 +402,8 @@ bool Parser::MakeExprStmt(std::shared_ptr<ExprStmt> &stmt)
 
             std::shared_ptr<AssignmentExpr> assign(new AssignmentExpr);
 
-            // type of destination variable
-            auto type = compiler_state->type_store[op_left.type];
+            auto id = compiler_state->GetID(op_left.token);
+            auto type = compiler_state->type_store[id]
 
             auto decl = std::shared_ptr<DeclInfo>(new DeclInfo(type, op_left.token));
             assign->destination = std::shared_ptr<DeclRefExpr>(
@@ -527,11 +530,23 @@ bool Parser::MakeFunctionDefinition(std::shared_ptr<Function> &function)
 
     function = std::shared_ptr<Function>(new Function());
 
+    IdentifierInfo id_func;
+    id_func.module_name = compiler_state->module_name;
+    id_func.scope = compiler_state->CurrentScope();
+    id_func.id_type = kIdFunction;
+
     bool result = MakeTypeDefinition(function->type) &&
-                  MakeFunctionIdentifier(function->function_name) &&
+                  MakeFunctionIdentifier(function->function_name, id_func) &&
                   MakeArgumentDeclList(function->arguments);
 
-    compiler_state->scope += "::" + function->function_name;
+    if (!result) {
+        return false;
+    }
+
+    auto uid = compiler_state->CurrentScope() + function->function_name;
+    compiler_state->identifier_store[uid] = id_func;
+
+    compiler_state->PushScope(function->function_name);
 
     result &= MakeCompoundStmt(function->stmts);
 
@@ -547,7 +562,7 @@ bool Parser::MakePrimaryExpr(std::shared_ptr<PrimaryExpr>& primary_expr)
 
     std::shared_ptr<Node> expr(new Node);
     if (GetToken().type == tkWord) {
-        if (compiler_state->IsDefinedVar(compiler_state->scope + "::" + GetToken().token))
+        if (compiler_state->IsDefinedID(compiler_state->scope + "::" + GetToken().token))
         {
         }
     }
