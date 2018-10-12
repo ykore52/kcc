@@ -530,6 +530,7 @@ bool Parser::MakeFunctionDefinition(std::shared_ptr<Function> &function)
 
     function = std::shared_ptr<Function>(new Function());
 
+    DeclInfo 
     IdentifierInfo id_func;
     id_func.module_name = compiler_state->module_name;
     id_func.scope = compiler_state->CurrentScope();
@@ -544,6 +545,7 @@ bool Parser::MakeFunctionDefinition(std::shared_ptr<Function> &function)
     }
 
     auto uid = compiler_state->CurrentScope() + function->function_name;
+
     compiler_state->identifier_store[uid] = id_func;
 
     compiler_state->PushScope(function->function_name);
